@@ -1,0 +1,4 @@
+[submodule "Assets/Basement"]
+	path = Assets/Basement
+	url = https://github.com/planetouched/Unity3d_OEPFramework_Basement
+	branch = develop
