@@ -1,10 +1,13 @@
-﻿namespace Shared.Messages
+﻿using Shared.Messages._Base;
+
+namespace Shared.Messages
 {
-    public class ControlMessage
+    public class PlayerControlMessage : IPlayerControlMessage
     {
+        public uint objectId { get; set; }
+
         public uint messageNum { get; set; }
         public float deltaTime { get; set; }
-        
         public float mouseSensitivity { get; set; }
         
         public bool forward { get; set; }
@@ -14,14 +17,6 @@
         public float mouseX { get; set; }
         public float mouseY { get; set; }
         
-        private static int _globalHash;
-        private readonly int _hash;
-
-        public ControlMessage()
-        {
-            _hash = _globalHash++;
-        }
-
         public void Clear()
         {
             forward = false;
@@ -33,11 +28,6 @@
             mouseSensitivity = 0;
             messageNum = 0;
             deltaTime = 0;
-        }
-        
-        public override int GetHashCode()
-        {
-            return _hash;
         }
     }
 }

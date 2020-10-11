@@ -1,60 +1,47 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
-using Basement.OEPFramework.UnityEngine;
 using Basement.OEPFramework.UnityEngine._Base;
 using Basement.OEPFramework.UnityEngine.Loop;
 using Basement.OEPFramework.UnityEngine.Transit;
+using Client.Game.Entities;
+using Client.Game.Entities._Base;
 using Client.Test;
-using Shared.Game;
+using Server.Game.Entities;
+using Shared.Game._Base;
+using Shared.Game.Entities;
+using Shared.Game.Entities._Base;
 using Shared.Messages;
 using Shared.ObjectPools;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
 
 namespace Client.Game
 {
-    public class ClientSimulation : SimulationBase, IDroppableItem
+    public class ClientSimulation : ISimulation
     {
-        private readonly int _mainThreadId;
-        
-        public bool dropped { get; }
+        public bool dropped { get; private set; }
         public event Action<IDroppableItem> onDrop;
 
-        private readonly WorldView _worldView;
-        private readonly World _world;
-
+        private WorldView _worldView;
+        
         private uint _messageNum;
-        private readonly ObjectPoolNts<ControlMessage> _messagesPool = new ObjectPoolNts<ControlMessage>(() => new ControlMessage());
-        private readonly List<ControlMessage> _messages = new List<ControlMessage>(128);
-        private readonly Queue<WorldSnapshot> _snapshots = new Queue<WorldSnapshot>(128);
+        private readonly ObjectPoolNts<PlayerControlMessage> _messagesPool = new ObjectPoolNts<PlayerControlMessage>(() => new PlayerControlMessage());
+        private readonly List<PlayerControlMessage> _messages = new List<PlayerControlMessage>(128);
+        private readonly ConcurrentQueue<WorldSnapshot> _snapshots = new ConcurrentQueue<WorldSnapshot>();
 
-        private LoopTransit _loopTransit;
-
+        private ControlLoopTransit _loopTransit;
         private uint _lastSnapshotNum;
+        private uint _objectHash;
 
-        public ClientSimulation(World world) : base(world)
+        private ISharedPlayer _localClientPlayer;
+
+        public void IncomingSnapshot(WorldSnapshot snapshot)
         {
-            _mainThreadId = Thread.CurrentThread.ManagedThreadId;
-            
-            _world = world;
-            _worldView = new WorldView(world);
+            _snapshots.Enqueue(snapshot);
         }
 
-        public void AddSnapshot(WorldSnapshot snapshot)
-        {
-            if (Thread.CurrentThread.ManagedThreadId == _mainThreadId)
-            {
-                _snapshots.Enqueue(snapshot);
-            }
-            else
-            {
-                Sync.Add(() => { _snapshots.Enqueue(snapshot); }, Loops.UPDATE);
-            }
-        }
-
-        private void SetControlState(ControlMessage message)
+        private void FillControlState(PlayerControlMessage message)
         {
             if (Input.GetKey(KeyCode.W))
                 message.forward = true;
@@ -73,85 +60,120 @@ namespace Client.Game
             message.mouseSensitivity = ClientSettings.MouseSensitivity;
         }
 
-        public override void Start()
+        public void Start()
         {
-            _loopTransit = new LoopTransit();
-            _loopTransit.LoopOn(Loops.UPDATE, Update);
+            _loopTransit = new ControlLoopTransit();
+            _loopTransit.LoopOn(Loops.UPDATE, Process);
 
-            Bridge.serverSimulation.tickComplete += AddSnapshot;
+            Bridge.serverSimulation.tickComplete += IncomingSnapshot;
+            
+            //----------------------------------------------------------------
+            //async connect to server world
+            var serverWorld = Bridge.serverSimulation.world;
+            var serverPlayer = new ServerPlayer {position = new System.Numerics.Vector3(0, 1, 0)};
+            _objectHash = serverWorld.AddEntity(serverWorld.GetNewObjectId(), serverPlayer);
+            
+            //sync position and rotation
+            _localClientPlayer = new ClientPlayer {position = serverPlayer.position};
+            _worldView = new WorldView(_localClientPlayer);
+
+            _loopTransit.Play();
+            //----------------------------------------------------------------
         }
 
-        public override void Update()
+        public void Stop()
+        {
+            _loopTransit.Drop();
+            _worldView.Drop();
+        }
+
+        public void Process()
         {
             var newMessage = _messagesPool.Take();
             newMessage.Clear();
-            SetControlState(newMessage);
+            FillControlState(newMessage);
 
-            newMessage.messageNum = _messageNum++;
+            _messageNum++;
+            newMessage.objectId = _objectHash;
+            newMessage.messageNum = _messageNum;
             newMessage.deltaTime = Time.deltaTime;
 
             _messages.Add(newMessage);
 
             //prediction
-            _world.localPlayer.Calculate(newMessage);
-            
-            Rewind();
+            _localClientPlayer.AddControlMessage(newMessage);
+            _localClientPlayer.Process();
 
-            _worldView.Update();
-
-            Bridge.serverSimulation.AddMessage(newMessage);
-        }
-
-        private void Rewind()
-        {
-            while (_snapshots.Count > 0)
+            //rewind
+            while (_snapshots.TryDequeue(out var snapshot))
             {
-                var snapshot = _snapshots.Dequeue();
-
-                if (_lastSnapshotNum > snapshot.snapshotNum)
+                if (snapshot.snapshotSize == 0)
                 {
                     continue;
                 }
-
-                _lastSnapshotNum = snapshot.snapshotNum;
-
-                while (_messages.Count > 0)
+                
+                try
                 {
-                    var message = _messages[0];
-                    _messages.RemoveAt(0);
-                    
-                    if (message.messageNum == snapshot.lastMessageNum)
+                    var world = new ClientWorld();
+                    int offset = 0;
+                    world.Deserialize(ref offset, snapshot.data, snapshot.snapshotSize);
+
+                    if (_lastSnapshotNum < snapshot.snapshotNum)
                     {
-                        _world.localPlayer.position = snapshot.lastPosition;
-                        _world.localPlayer.rotation = snapshot.lastRotation;
-
-                        for (int i = 0; i < _messages.Count; i++)
-                        {
-                            _world.localPlayer.Calculate(_messages[i]);
-                        }
-                        
-                        Debug.Log("OK");
-                        
-                        break;
+                        Rewind(world);
+                        _worldView.AddClientWorldSnapshot(world);
+                        _lastSnapshotNum = snapshot.snapshotNum;
                     }
-                }
 
-                if (_messages.Count == 0 && _snapshots.Count > 0)
+                }
+                catch (ArgumentOutOfRangeException)
                 {
-                    //desync
-                    _world.localPlayer.position = snapshot.lastPosition;
-                    _world.localPlayer.rotation = snapshot.lastRotation;
-                    Debug.LogWarning("DESYNC");
                 }
             }
+
+            _worldView.Update();
+
+            Bridge.serverSimulation.AddPlayerMessage(newMessage);        
         }
 
-        public void Drop()
+        private void Rewind(IClientWorld world)
         {
-            if (dropped) return;
-            _loopTransit.Drop();
-            _worldView.Drop();
-            onDrop?.Invoke(this);
+            var playerOnServer = world.FindEntity<ClientPlayer>(_objectHash, GameEntityType.Player);
+
+            if (playerOnServer == null)
+            {
+                //error?
+                return;
+            }
+            
+            while (_messages.Count > 0)
+            {
+                var message = _messages[0];
+                _messages.RemoveAt(0);
+                    
+                if (message.messageNum == playerOnServer.lastMessageNum)
+                {
+                    _localClientPlayer.position = playerOnServer.position;
+                    _localClientPlayer.rotation = playerOnServer.rotation;
+
+                    for (int i = 0; i < _messages.Count; i++)
+                    {
+                        _localClientPlayer.AddControlMessage(_messages[i]);
+                    }
+                        
+                    _localClientPlayer.Process();
+                        
+                    //Debug.Log("ok, applied messages: " + _messages.Count);
+                    break;
+                }
+            }
+
+            if (_messages.Count == 0 && _snapshots.Count > 0)
+            {
+                _localClientPlayer.position = playerOnServer.position;
+                _localClientPlayer.rotation = playerOnServer.rotation;
+                Debug.LogWarning("desync or no control messages");
+            }
         }
     }
 }

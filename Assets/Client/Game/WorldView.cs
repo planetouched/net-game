@@ -1,22 +1,27 @@
 ﻿using Basement.OEPFramework.UnityEngine._Base;
-using Shared.Game;
+using Client.Game.Entities._Base;
+using Shared.Game.Entities._Base;
 using UnityEngine;
 
 namespace Client.Game
 {
     public class WorldView : DroppableItemBase
     {
-        private readonly World _world;
+        private readonly ISharedPlayer _localPlayer;
         
-        public WorldView(World world)
+        public WorldView(ISharedPlayer localPlayer)
         {
-            _world = world;
+            _localPlayer = localPlayer;
+        }
+
+        public void AddClientWorldSnapshot(IClientWorld world)
+        {
         }
 
         public void Update()
         {
-            var r = _world.localPlayer.rotation;
-            var p = _world.localPlayer.position;
+            var r = _localPlayer.rotation;
+            var p = _localPlayer.position;
             var rotation = Quaternion.Euler(new Vector3(r.X, r.Y, r.Z));
             var position = new Vector3(p.X, p.Y, p.Z);
             

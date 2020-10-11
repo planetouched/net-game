@@ -1,11 +1,12 @@
-﻿using Basement.OEPFramework.Futures;
+﻿using System.Collections.Generic;
+using Basement.OEPFramework.Futures;
 using Client.Game;
 using Client.Sections._Base;
 using Client.Test;
 using Server.Game;
-using Shared.Game;
+using Server.Game.Entities;
+using Shared.Game.Entities;
 using UnityEngine;
-using Vector3 = System.Numerics.Vector3;
 
 namespace Client.Sections.GamePlay
 {
@@ -17,8 +18,8 @@ namespace Client.Sections.GamePlay
         protected override void Init()
         {
             Debug.Log("start");
-            _serverSimulation = new ServerSimulation(new World(new Player(new Vector3(0, 1, 0), Vector3.Zero)));
-            _clientSimulation = new ClientSimulation(new World(new Player(new Vector3(0, 1, 0), Vector3.Zero)));
+            _serverSimulation = new ServerSimulation(new ServerWorld());
+            _clientSimulation = new ClientSimulation();
             
             Bridge.SetSimulations(_clientSimulation, _serverSimulation);
             
@@ -28,8 +29,8 @@ namespace Client.Sections.GamePlay
 
         public override IFuture Drop()
         {
-            _clientSimulation.Drop();
-            _serverSimulation.Dispose();
+            _clientSimulation.Stop();
+            _serverSimulation.Stop();
             return null;
         }
     }

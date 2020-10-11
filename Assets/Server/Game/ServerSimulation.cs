@@ -1,92 +1,126 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
-using Shared.Game;
+using Server.Game.Entities;
+using Server.Game.Entities._Base;
+using Shared.Game._Base;
+using Shared.Game.Entities;
 using Shared.Messages;
+using Shared.Messages._Base;
 
 namespace Server.Game
 {
-    public class ServerSimulation : SimulationBase, IDisposable
+    public class ServerSimulation : ISimulation
     {
         private uint _snapshotNum;
-        
+
         private Thread _tickThread;
         private volatile bool _update;
         private bool _disposed;
+        public IServerWorld world { get; }
 
-        private readonly World _world;
-        
-        private readonly ConcurrentQueue<ControlMessage> _messages = new ConcurrentQueue<ControlMessage>();
+        private readonly ConcurrentQueue<IPlayerControlMessage> _messages = new ConcurrentQueue<IPlayerControlMessage>();
 
         public event Action<WorldSnapshot> tickComplete;
-        
-        public ServerSimulation(World world) : base(world)
+        private byte[] _buffer = new byte[1024 * 1024];
+
+        public ServerSimulation(IServerWorld world)
         {
-            _world = world;
+            this.world = world;
         }
 
-        public void AddMessage(ControlMessage message)
+        public void AddPlayerMessage(IPlayerControlMessage message)
         {
             _messages.Enqueue(message);
         }
 
-        public override void Start()
+        public void Start()
         {
             _tickThread = new Thread(Thread_Tick) {IsBackground = true};
             _tickThread.Start();
         }
 
-        public override void Update()
+        public void Process()
         {
-            uint lastMessageNum = 0;
-            bool updated = false;
-            
             while (_messages.TryDequeue(out var message))
             {
-                _world.localPlayer.Calculate(message);
-                lastMessageNum = message.messageNum;
-                updated = true;
+                var player = world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
+
+                if (player != null)
+                {
+                    if (player.lastMessageNum < message.messageNum)
+                    {
+                        player.AddControlMessage(message);
+                    }
+                }
             }
 
-            if (updated)
+            world.Process();
+
+            _snapshotNum++;
+            
+            int offset = 0;
+            bool tryToSerialize = true;
+            
+            while (tryToSerialize)
             {
-                _snapshotNum++;
-                
-                var snapshot = new WorldSnapshot();
-                snapshot.snapshotNum = _snapshotNum;
-                snapshot.lastMessageNum = lastMessageNum;
-                snapshot.lastPosition = _world.localPlayer.position;
-                snapshot.lastRotation = _world.localPlayer.rotation;
-                tickComplete?.Invoke(snapshot);
+                tryToSerialize = false;
+
+                try
+                {
+                    world.Serialize(ref offset, _buffer);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    if (_buffer.Length < 1024 * 1024 * 8)
+                    {
+                        offset = 0;
+                        tryToSerialize = true;
+                        _buffer = new byte[_buffer.Length * 2];
+                    }
+                    else
+                    {
+                        throw new Exception("error... stop simulation");
+                    }
+                }
             }
+
+            var snapshot = new WorldSnapshot
+            {
+                snapshotSize = offset,
+                snapshotNum = _snapshotNum, 
+                data = _buffer
+            };
+
+            tickComplete?.Invoke(snapshot);
         }
 
-        public void Dispose()
+        public void Stop()
         {
             if (_disposed) return;
             _disposed = true;
 
             _update = false;
             _tickThread.Join();
-            
+
             tickComplete = null;
         }
 
         private void Thread_Tick()
         {
             _update = true;
-            int delay = (int)(1 / (float)ServerSettings.TicksCount) * 1000;
+            int delay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
 
             while (_update)
             {
-                Update();
+                Process();
                 Thread.Sleep(delay);
             }
         }
-        
+
         ~ServerSimulation()
         {
-            Dispose();
+            Stop();
         }
     }
 }

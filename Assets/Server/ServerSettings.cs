@@ -2,6 +2,6 @@
 {
     public static class ServerSettings
     {
-        public const int TicksCount = 30;
+        public const int TicksCount = 33;
     }
 }

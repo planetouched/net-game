@@ -1,27 +1,15 @@
 ﻿using System.Numerics;
-using System.Threading;
-using Shared.Messages;
+using Shared.Messages._Base;
 using Shared.Utils;
 
-namespace Shared.Game
+namespace Shared.Game.Entities._Base
 {
-    public class Player
+    public abstract class SharedPlayerBase : SharedEntityBase, ISharedPlayer
     {
-        private static int _globalHash;
-        private readonly int _hash;
+        public uint lastMessageNum { get; protected set; }
+        public abstract void AddControlMessage(IPlayerControlMessage message);
         
-        public Vector3 position { get; set; }
-        public Vector3 rotation { get; set; }
-
-        public Player(Vector3 position, Vector3 rotation)
-        {
-            this.position = position;
-            this.rotation = rotation;
-            
-            _hash = Interlocked.Increment(ref _globalHash);
-        }
-
-        public void Calculate(ControlMessage message)
+        protected void Movement(IPlayerControlMessage message)
         {
             Vector3 movement = Vector3.Zero;
 
@@ -42,11 +30,6 @@ namespace Shared.Game
 
             var q = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.ToRadians(rotation.Y));
             position += Vector3.Transform(movement * SharedSettings.BaseSpeed * message.deltaTime, q);
-        }
-
-        public override int GetHashCode()
-        {
-            return _hash;
         }
     }
 }
