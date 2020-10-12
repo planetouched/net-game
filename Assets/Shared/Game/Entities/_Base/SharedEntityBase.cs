@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using Shared.Enums;
 
 namespace Shared.Game.Entities._Base
 {

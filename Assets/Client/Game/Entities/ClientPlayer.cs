@@ -2,23 +2,26 @@
 using System.Numerics;
 using Client.Game.Entities._Base;
 using Shared;
+using Shared.Enums;
 using Shared.Game.Entities;
 using Shared.Game.Entities._Base;
+using Shared.Messages;
 using Shared.Messages._Base;
+using Shared.Messages.FromClient;
 using Shared.Utils;
 
 namespace Client.Game.Entities
 {
     public class ClientPlayer : SharedPlayerBase, IClientEntity
     {
-        private readonly Queue<IPlayerControlMessage> _controlMessages = new Queue<IPlayerControlMessage>(64);
+        private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
         
         public ClientPlayer()
         {
             type = GameEntityType.Player;
         }
 
-        public override void AddControlMessage(IPlayerControlMessage message)
+        public override void AddControlMessage(ControlMessage message)
         {
             _controlMessages.Enqueue(message);
             lastMessageNum = message.messageNum;

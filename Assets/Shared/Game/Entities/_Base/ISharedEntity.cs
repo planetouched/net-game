@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Server.Game.Entities._Base;
+using Shared.Enums;
 
 namespace Shared.Game.Entities._Base
 {

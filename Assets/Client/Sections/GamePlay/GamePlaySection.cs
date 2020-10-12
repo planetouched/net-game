@@ -1,11 +1,7 @@
-﻿using System.Collections.Generic;
-using Basement.OEPFramework.Futures;
+﻿using Basement.OEPFramework.Futures;
 using Client.Game;
 using Client.Sections._Base;
-using Client.Test;
 using Server.Game;
-using Server.Game.Entities;
-using Shared.Game.Entities;
 using UnityEngine;
 
 namespace Client.Sections.GamePlay
@@ -18,19 +14,37 @@ namespace Client.Sections.GamePlay
         protected override void Init()
         {
             Debug.Log("start");
-            _serverSimulation = new ServerSimulation(new ServerWorld());
-            _clientSimulation = new ClientSimulation();
+        }
+
+        private void OnGUI()
+        {
+            if (GUI.Button(new Rect(0, 0, 100, 100), "Run server"))
+            {
+                _serverSimulation = new ServerSimulation("127.0.0.1", 12345, 1);
+                _serverSimulation.Start();
+            }
             
-            Bridge.SetSimulations(_clientSimulation, _serverSimulation);
+            if (GUI.Button(new Rect(0, 200, 100, 100), "Stop server"))
+            {
+                _serverSimulation.Stop();
+            }
             
-            _serverSimulation.Start();
-            _clientSimulation.Start();
+            if (GUI.Button(new Rect(300, 0, 100, 100), "Run client"))
+            {
+                _clientSimulation = new ClientSimulation("127.0.0.1", 12345, 1);
+                _clientSimulation.Start();
+            }
+            
+            if (GUI.Button(new Rect(300, 200, 100, 100), "Stop client"))
+            {
+                _clientSimulation.Drop();
+            }
         }
 
         public override IFuture Drop()
         {
-            _clientSimulation.Stop();
-            _serverSimulation.Stop();
+            _serverSimulation?.Stop();
+            _clientSimulation?.Drop();
             return null;
         }
     }

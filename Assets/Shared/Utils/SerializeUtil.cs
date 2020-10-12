@@ -48,6 +48,12 @@ namespace Shared.Utils
             SerializeStruct(value, ref offset, dest);
         }
 
+        public static void BlockCopy(byte[] src, int srcOffset, byte[] dst, int dstOffset, int count, ref int offset)
+        {
+            Buffer.BlockCopy(src, srcOffset, dst, dstOffset, count);
+            offset += count;
+        }
+
         private static void SerializeStruct<T>(T value, ref int offset, byte[] buffer) where T : struct
         {
             int rawSize = Marshal.SizeOf(value);

@@ -1,47 +1,57 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading;
-using Basement.OEPFramework.UnityEngine._Base;
+using Basement.OEPFramework.UnityEngine.Behaviour;
 using Basement.OEPFramework.UnityEngine.Loop;
-using Basement.OEPFramework.UnityEngine.Transit;
 using Client.Game.Entities;
-using Client.Game.Entities._Base;
-using Client.Test;
-using Server.Game.Entities;
+using Client.Game.Views;
+using Shared;
+using Shared.Decoders;
+using Shared.Enums;
+using Shared.Factories;
 using Shared.Game._Base;
-using Shared.Game.Entities;
 using Shared.Game.Entities._Base;
-using Shared.Messages;
-using Shared.ObjectPools;
+using Shared.Messages._Base;
+using Shared.Messages.FromClient;
+using Shared.Messages.FromServer;
+using SimpleTcp;
 using UnityEngine;
 
 namespace Client.Game
 {
-    public class ClientSimulation : ISimulation
+    public class ClientSimulation : ControlLoopBehaviour, ISimulation
     {
-        public bool dropped { get; private set; }
-        public event Action<IDroppableItem> onDrop;
-
+        //simulation
         private WorldView _worldView;
-        
+        private ISharedPlayer _localPlayer;
+
+        private readonly List<ControlMessage> _messages = new List<ControlMessage>(128);
+        private readonly ConcurrentQueue<WorldSnapshotMessage> _snapshots = new ConcurrentQueue<WorldSnapshotMessage>();
+
         private uint _messageNum;
-        private readonly ObjectPoolNts<PlayerControlMessage> _messagesPool = new ObjectPoolNts<PlayerControlMessage>(() => new PlayerControlMessage());
-        private readonly List<PlayerControlMessage> _messages = new List<PlayerControlMessage>(128);
-        private readonly ConcurrentQueue<WorldSnapshot> _snapshots = new ConcurrentQueue<WorldSnapshot>();
-
-        private ControlLoopTransit _loopTransit;
         private uint _lastSnapshotNum;
-        private uint _objectHash;
+        private uint _objectId;
+        private readonly uint _gameId;
 
-        private ISharedPlayer _localClientPlayer;
+        //network
+        private SimpleTcpClient _tcpClient;
+        private readonly ByteToMessageDecoder _byteToMessageDecoder;
+        private readonly string _serverIp;
+        private readonly int _port;
+        
+        private readonly object _readLock = new object();
 
-        public void IncomingSnapshot(WorldSnapshot snapshot)
+        public ClientSimulation(string serverIp, int port, uint gameId)
         {
-            _snapshots.Enqueue(snapshot);
+            _gameId = gameId;
+            _serverIp = serverIp;
+            _port = port;
+            _byteToMessageDecoder = new ByteToMessageDecoder(SharedSettings.MaxMessageSize);
+
+            LoopOn(Loops.UPDATE, Process);
         }
 
-        private void FillControlState(PlayerControlMessage message)
+        private void FillControlMessage(ControlMessage message)
         {
             if (Input.GetKey(KeyCode.W))
                 message.forward = true;
@@ -57,52 +67,65 @@ namespace Client.Game
 
             message.mouseX = Input.GetAxis("Mouse X");
             message.mouseY = -Input.GetAxis("Mouse Y");
-            message.mouseSensitivity = ClientSettings.MouseSensitivity;
+            message.sensitivity = ClientSettings.MouseSensitivity;
         }
 
         public void Start()
         {
-            _loopTransit = new ControlLoopTransit();
-            _loopTransit.LoopOn(Loops.UPDATE, Process);
+            Stop();
 
-            Bridge.serverSimulation.tickComplete += IncomingSnapshot;
+            _tcpClient = new SimpleTcpClient(_serverIp, _port, false, null, null);
+            _tcpClient.Events.Connected += Client_Connected;
+            _tcpClient.Events.Disconnected += Client_Disconnected;
+            _tcpClient.Events.DataReceived += Client_DataReceived;
             
-            //----------------------------------------------------------------
-            //async connect to server world
-            var serverWorld = Bridge.serverSimulation.world;
-            var serverPlayer = new ServerPlayer {position = new System.Numerics.Vector3(0, 1, 0)};
-            _objectHash = serverWorld.AddEntity(serverWorld.GetNewObjectId(), serverPlayer);
+            _tcpClient.Settings.MutuallyAuthenticate = false;
+            _tcpClient.Settings.AcceptInvalidCertificates = true;
             
-            //sync position and rotation
-            _localClientPlayer = new ClientPlayer {position = serverPlayer.position};
-            _worldView = new WorldView(_localClientPlayer);
+            _tcpClient.Connect();
+            
+            if (!_tcpClient.IsConnected)
+            {
+                Stop();
+                return;
+            }
 
-            _loopTransit.Play();
-            //----------------------------------------------------------------
+            var connectMessage = MessageFactory.Create<ConnectMessage>(MessageIds.Connect);
+            connectMessage.gameId = _gameId;
+
+            _tcpClient.Send(MessageBase.ConvertToBytes(connectMessage));
         }
 
         public void Stop()
         {
-            _loopTransit.Drop();
-            _worldView.Drop();
+            if (_tcpClient == null) return;
+            
+            _tcpClient.Events.Connected -= Client_Connected;
+            _tcpClient.Events.Disconnected -= Client_Disconnected;
+            _tcpClient.Events.DataReceived -= Client_DataReceived;
+            _tcpClient.Dispose();
+            _tcpClient = null;
+                
+            Pause();
+            _worldView?.Drop();
         }
 
         public void Process()
         {
-            var newMessage = _messagesPool.Take();
-            newMessage.Clear();
-            FillControlState(newMessage);
+            var controlMessage = MessageFactory.Create<ControlMessage>(MessageIds.PlayerControl);
+            FillControlMessage(controlMessage);
 
             _messageNum++;
-            newMessage.objectId = _objectHash;
-            newMessage.messageNum = _messageNum;
-            newMessage.deltaTime = Time.deltaTime;
+            controlMessage.gameId = _gameId;
+            controlMessage.objectId = _objectId;
+            controlMessage.messageNum = _messageNum;
+            controlMessage.deltaTime = Time.deltaTime;
 
-            _messages.Add(newMessage);
+            _messages.Add(controlMessage);
 
             //prediction
-            _localClientPlayer.AddControlMessage(newMessage);
-            _localClientPlayer.Process();
+            _localPlayer.AddControlMessage(controlMessage);
+            _localPlayer.Process();
 
             //rewind
             while (_snapshots.TryDequeue(out var snapshot))
@@ -111,58 +134,55 @@ namespace Client.Game
                 {
                     continue;
                 }
-                
-                try
-                {
-                    var world = new ClientWorld();
-                    int offset = 0;
-                    world.Deserialize(ref offset, snapshot.data, snapshot.snapshotSize);
 
-                    if (_lastSnapshotNum < snapshot.snapshotNum)
-                    {
-                        Rewind(world);
-                        _worldView.AddClientWorldSnapshot(world);
-                        _lastSnapshotNum = snapshot.snapshotNum;
-                    }
+                var snapshotView = new ClientWorldSnapshot(snapshot);
 
-                }
-                catch (ArgumentOutOfRangeException)
+                if (_lastSnapshotNum < snapshot.snapshotNum)
                 {
+                    Rewind(snapshotView);
+                    _worldView.AddWorldSnapshot(snapshotView);
+                    _lastSnapshotNum = snapshot.snapshotNum;
                 }
             }
 
-            _worldView.Update();
+            _tcpClient.Send(MessageBase.ConvertToBytes(controlMessage));
 
-            Bridge.serverSimulation.AddPlayerMessage(newMessage);        
+            _worldView.Update();
         }
 
-        private void Rewind(IClientWorld world)
+        public override void Drop()
         {
-            var playerOnServer = world.FindEntity<ClientPlayer>(_objectHash, GameEntityType.Player);
+            if (dropped) return;
+            Stop();
+            base.Drop();
+        }
+
+        private void Rewind(ClientWorldSnapshot clientWorldSnapshot)
+        {
+            var playerOnServer = clientWorldSnapshot.FindEntity<ClientPlayer>(_objectId, GameEntityType.Player);
 
             if (playerOnServer == null)
             {
                 //error?
                 return;
             }
-            
+
             while (_messages.Count > 0)
             {
                 var message = _messages[0];
                 _messages.RemoveAt(0);
-                    
+
                 if (message.messageNum == playerOnServer.lastMessageNum)
                 {
-                    _localClientPlayer.position = playerOnServer.position;
-                    _localClientPlayer.rotation = playerOnServer.rotation;
+                    _localPlayer.position = playerOnServer.position;
+                    _localPlayer.rotation = playerOnServer.rotation;
 
                     for (int i = 0; i < _messages.Count; i++)
                     {
-                        _localClientPlayer.AddControlMessage(_messages[i]);
+                        _localPlayer.AddControlMessage(_messages[i]);
                     }
-                        
-                    _localClientPlayer.Process();
-                        
+
+                    _localPlayer.Process();
                     //Debug.Log("ok, applied messages: " + _messages.Count);
                     break;
                 }
@@ -170,10 +190,63 @@ namespace Client.Game
 
             if (_messages.Count == 0 && _snapshots.Count > 0)
             {
-                _localClientPlayer.position = playerOnServer.position;
-                _localClientPlayer.rotation = playerOnServer.rotation;
+                _localPlayer.position = playerOnServer.position;
+                _localPlayer.rotation = playerOnServer.rotation;
                 Debug.LogWarning("desync or no control messages");
             }
+        }
+
+        private void Client_DataReceived(object sender, DataReceivedFromServerEventArgs e)
+        {
+            lock (_readLock)
+            {
+                var fullMessages = _byteToMessageDecoder.Decode(e.Data);
+                
+                if (fullMessages != null)
+                {
+                    for (int i = 0; i < fullMessages.Count; i++)
+                    {
+                        ProcessMessage(MessageFactory.Create(fullMessages[i]));
+                    }
+                }
+            }
+        }
+        
+        private void ProcessMessage(IMessage message)
+        {
+            if (_objectId != 0)
+            {
+                switch (message.GetMessageId())
+                {
+                    case MessageIds.WorldSnapshot:
+                    {
+                        var snapshot = (WorldSnapshotMessage) message;
+                        _snapshots.Enqueue(snapshot);
+                        break;
+                    }
+                }
+            }
+            else
+            {
+                if (message.GetMessageId() == MessageIds.ConnectAccepted)
+                {
+                    var connectAccepted = (ConnectAccepted) message;
+                    _objectId = connectAccepted.objectId;
+                    _localPlayer = new ClientPlayer();
+                    _worldView = new WorldView(_localPlayer);
+                    
+                    Play();
+                }
+            }
+        }
+
+        private void Client_Disconnected(object sender, EventArgs e)
+        {
+            Stop();
+        }
+
+        private void Client_Connected(object sender, EventArgs e)
+        {
         }
     }
 }

@@ -1,11 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Numerics;
 using Server.Game.Entities._Base;
+using Server.Game.Worlds._Base;
 using Shared;
+using Shared.Decoders;
+using Shared.Enums;
 using Shared.Game.Entities;
 using Shared.Game.Entities._Base;
+using Shared.Messages;
 using Shared.Messages._Base;
+using Shared.Messages.FromClient;
 using Shared.Utils;
+using UnityEditor.VersionControl;
 
 namespace Server.Game.Entities
 {
@@ -13,15 +19,18 @@ namespace Server.Game.Entities
     {
         public bool remove { get; set; }
         public IServerWorld world { get; set; }
-        
-        private readonly Queue<IPlayerControlMessage> _controlMessages = new Queue<IPlayerControlMessage>(64);
+        public string ipPort { get; }
+        public ByteToMessageDecoder byteToMessageDecoder { get; } = new ByteToMessageDecoder(SharedSettings.MaxMessageSize);
 
-        public ServerPlayer()
+        private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
+
+        public ServerPlayer(string ipPort)
         {
             type = GameEntityType.Player;
+            this.ipPort = ipPort;
         }
 
-        public override void AddControlMessage(IPlayerControlMessage message)
+        public override void AddControlMessage(ControlMessage message)
         {
             _controlMessages.Enqueue(message);
             lastMessageNum = message.messageNum;
@@ -38,7 +47,7 @@ namespace Server.Game.Entities
         
         public void Serialize(ref int offset, byte[] buffer)
         {
-            SerializeUtil.SetInt((int)type, ref offset, buffer);
+            SerializeUtil.SetByte((byte)type, ref offset, buffer);
             SerializeUtil.SetUInt(objectId, ref offset, buffer);
             SerializeUtil.SetUInt(lastMessageNum, ref offset, buffer);
             SerializeUtil.SetVector3(position, ref offset, buffer);
