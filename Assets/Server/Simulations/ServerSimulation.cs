@@ -30,7 +30,7 @@ namespace Server.Simulations
         
         private readonly byte[] _outputBuffer = new byte[SharedSettings.MaxMessageSize];
 
-        private SimpleTcpServer _server;
+        private volatile SimpleTcpServer _serverSocket;
         private readonly string _serverIp;
         private readonly int _port;
         private readonly uint _gameId;
@@ -48,22 +48,22 @@ namespace Server.Simulations
 
         public void Start()
         {
-            if (_server != null) return;
+            if (_serverSocket != null) return;
             
-            _server = new SimpleTcpServer(_serverIp, _port, false, null, null);
+            _serverSocket = new SimpleTcpServer(_serverIp, _port, false, null, null);
             
-            _server.Settings.MutuallyAuthenticate = false;
-            _server.Settings.AcceptInvalidCertificates = true;
+            _serverSocket.Settings.MutuallyAuthenticate = false;
+            _serverSocket.Settings.AcceptInvalidCertificates = true;
             
-            _server.Events.ClientConnected += Client_Connected;
-            _server.Events.ClientDisconnected += Client_Disconnected;
-            _server.Events.DataReceived += Client_DataReceived;
+            _serverSocket.Events.ClientConnected += Client_Connected;
+            _serverSocket.Events.ClientDisconnected += Client_Disconnected;
+            _serverSocket.Events.DataReceived += Client_DataReceived;
             
             _tickThread = new Thread(Thread_Tick) {IsBackground = true};
             _tickThread.Start();
             
-            _server.Start();
-            UnityEngine.Debug.Log("Server start");
+            _serverSocket.Start();
+            UnityEngine.Debug.Log("Server -> Start");
         }
 
         private void Client_DataReceived(object sender, DataReceivedFromClientEventArgs e)
@@ -73,14 +73,14 @@ namespace Server.Simulations
 
         private void Client_Disconnected(object sender, ClientDisconnectedEventArgs e)
         {
-            UnityEngine.Debug.Log("disconnect player");
+            UnityEngine.Debug.Log("Server -> Client was disconnected");
             _requests.Enqueue(new DisconnectPlayerRequest(e.IpPort, _players));
         }
 
         private void Client_Connected(object sender, ClientConnectedEventArgs e)
         {
-            UnityEngine.Debug.Log("connect player");
-            _requests.Enqueue(new ConnectPlayerRequest(_server, e.IpPort, _world, _gameId, _players));
+            UnityEngine.Debug.Log("Server -> Client was connected");
+            _requests.Enqueue(new ConnectPlayerRequest(_serverSocket, e.IpPort, _world, _gameId, _players));
         }
 
         private void ProcessMessage(IMessage message)
@@ -142,30 +142,30 @@ namespace Server.Simulations
                 {
                     try
                     {
-                        _server.Send(pair.Value.ipPort, bytes);
+                        _serverSocket.Send(pair.Value.ipPort, bytes);
                     }
                     catch (ArgumentNullException)
                     {
-                        _server.DisconnectClient(pair.Value.ipPort);
+                        _serverSocket.DisconnectClient(pair.Value.ipPort);
                     }
                 }
             }
             catch (Exception)
             {
                 Stop();
-                throw new Exception("error... stop simulation");
+                UnityEngine.Debug.LogError("Server -> Error simulation");
             }
         }
 
         public void Stop()
         {
-            if (_server == null) return;
+            if (_serverSocket == null) return;
             
             foreach (var pair in _players)
             {
                 try
                 {
-                    _server.DisconnectClient(pair.Value.ipPort);
+                    _serverSocket.DisconnectClient(pair.Value.ipPort);
                 }
                 catch (Exception)
                 {
@@ -173,17 +173,16 @@ namespace Server.Simulations
                 }
             }            
             
-            _server.Events.ClientConnected -= Client_Connected;
-            _server.Events.ClientDisconnected -= Client_Disconnected;
-            _server.Events.DataReceived -= Client_DataReceived;
+            _serverSocket.Events.ClientConnected -= Client_Connected;
+            _serverSocket.Events.ClientDisconnected -= Client_Disconnected;
+            _serverSocket.Events.DataReceived -= Client_DataReceived;
             
-            _server.Dispose();
-            _server = null;
-            
-            UnityEngine.Debug.Log("Server stop");
+            _serverSocket.Dispose();
             
             _update = false;
             _tickThread?.Join();
+            _serverSocket = null;
+            UnityEngine.Debug.Log("Server -> Stop");
         }
 
         private void Thread_Tick()

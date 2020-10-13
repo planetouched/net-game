@@ -67,7 +67,7 @@ namespace Client.Simulations
 
         public void Start()
         {
-            Stop();
+            if (_tcpClient != null) return;
 
             _tcpClient = new SimpleTcpClient(_serverIp, _port, false, null, null);
             _tcpClient.Events.Connected += Client_Connected;
@@ -82,13 +82,7 @@ namespace Client.Simulations
             if (!_tcpClient.IsConnected)
             {
                 Stop();
-                return;
             }
-
-            var connectMessage = MessageFactory.Create<ConnectMessage>(MessageIds.Connect);
-            connectMessage.gameId = _gameId;
-
-            //_tcpClient.Send(MessageBase.ConvertToBytes(connectMessage));
         }
 
         public void Stop()
@@ -109,6 +103,7 @@ namespace Client.Simulations
                 _messages.Clear();
                 while (_snapshots.TryDequeue(out _)) {}
                 _tcpClient = null;
+                Debug.Log("Client -> Stop");
 
             }, Loops.UPDATE);
         }
@@ -159,13 +154,6 @@ namespace Client.Simulations
             _clientWorld.Process();
         }
 
-        public override void Drop()
-        {
-            if (dropped) return;
-            Stop();
-            base.Drop();
-        }
-
         private void Rewind(ClientLocalPlayer localPlayer, ClientWorldSnapshot clientWorldSnapshot)
         {
             var playerOnServer = clientWorldSnapshot.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
@@ -195,7 +183,7 @@ namespace Client.Simulations
             {
                 localPlayer.position = playerOnServer.position;
                 localPlayer.rotation = playerOnServer.rotation;
-                Debug.LogWarning("something went wrong or no control messages");
+                Debug.LogWarning("Client -> Something went wrong or no control messages");
             }
         }
 
@@ -241,12 +229,19 @@ namespace Client.Simulations
 
         private void Client_Disconnected(object sender, EventArgs e)
         {
-            Debug.Log("Client -> Client Disconnect");
+            Debug.Log("Client -> Disconnect");
             Stop();
         }
 
         private void Client_Connected(object sender, EventArgs e)
         {
+        }
+        
+        public override void Drop()
+        {
+            if (dropped) return;
+            Stop();
+            base.Drop();
         }
     }
 }
