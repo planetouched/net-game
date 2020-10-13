@@ -48,7 +48,7 @@ namespace Shared.Messages._Base
 
         public static MessageIds GetMessageId(byte[] buffer)
         {
-            int offset = 0;
+            int offset = 4;
             SerializeUtil.GetUInt(ref offset, buffer);
             var messageId = (MessageIds) SerializeUtil.GetByte(ref offset, buffer);
             return messageId;

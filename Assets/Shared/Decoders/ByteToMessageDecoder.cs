@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Shared.Utils;
 
 namespace Shared.Decoders
 {
@@ -26,9 +27,13 @@ namespace Shared.Decoders
             
             _bytesOffset += bytes.Length;
 
-            while (_bytesOffset >= 4)
+            bool tryGetMessage = true;
+            
+            while (_bytesOffset >= 4 && tryGetMessage)
             {
-                int messageSize = (_storedBytes[2] << 8) + _storedBytes[3];
+                tryGetMessage = false;
+                
+                int messageSize = BitConverter.ToInt32(_storedBytes, 0);
 
                 if (_bytesOffset >= messageSize)
                 {
@@ -41,6 +46,7 @@ namespace Shared.Decoders
                     Buffer.BlockCopy(_storedBytes, messageSize, _storedBytes, 0, tail);
                     _bytesOffset = tail;
                     fullMessages.Add(fullMessage);
+                    tryGetMessage = true;
                 }
             }
 

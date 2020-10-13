@@ -27,7 +27,7 @@ namespace Shared.Factories
 
                 //server
                 case MessageIds.ConnectAccepted:
-                    message = new ConnectAccepted();
+                    message = new ConnectAcceptedMessage();
                     break;
                 case MessageIds.WorldSnapshot:
                     message = new WorldSnapshotMessage();

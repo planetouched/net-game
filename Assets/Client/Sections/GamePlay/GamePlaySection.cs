@@ -1,7 +1,7 @@
 ﻿using Basement.OEPFramework.Futures;
-using Client.Game;
 using Client.Sections._Base;
-using Server.Game;
+using Client.Simulations;
+using Server.Simulations;
 using UnityEngine;
 
 namespace Client.Sections.GamePlay
@@ -31,7 +31,7 @@ namespace Client.Sections.GamePlay
             
             if (GUI.Button(new Rect(300, 0, 100, 100), "Run client"))
             {
-                _clientSimulation = new ClientSimulation("127.0.0.1", 12345, 1);
+                _clientSimulation = new ClientSimulation("127.0.0.1", 12345);
                 _clientSimulation.Start();
             }
             

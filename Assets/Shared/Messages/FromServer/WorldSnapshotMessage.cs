@@ -36,6 +36,8 @@ namespace Shared.Messages.FromServer
                 throw new Exception("MessageSize() != messageSize");
             }
             
+            data = new byte[snapshotSize];
+            
             SerializeUtil.BlockCopy(buffer, offset, data, 0, snapshotSize, ref offset);
         }
         
