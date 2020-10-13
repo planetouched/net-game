@@ -9,13 +9,13 @@ namespace Server.Worlds
     {
         private static uint _globalObjectId;
 
-        private readonly Dictionary<uint, IServerEntity> _entities = new Dictionary<uint, IServerEntity>(ushort.MaxValue + 1);
-        private readonly List<(uint objectId, IServerEntity entity)> _addEntities = new List<(uint, IServerEntity)>();
+        private readonly Dictionary<uint, IServerEntity> _entities = new Dictionary<uint, IServerEntity>(8192);
+        private readonly Dictionary<uint, IServerEntity> _addEntities = new Dictionary<uint, IServerEntity>(1024);
         private readonly List<uint> _removeEntities = new List<uint>();
 
         public uint AddEntity(uint objectId, IServerEntity entity)
         {
-            _addEntities.Add((objectId, entity));
+            _addEntities.Add(objectId, entity);
             entity.world = this;
             entity.objectId = objectId;
             return objectId;
@@ -24,18 +24,29 @@ namespace Server.Worlds
         public void RemoveEntity(uint objectId)
         {
             var entity = FindEntity(objectId);
-            if (entity != null)
-            {
-                _removeEntities.Add(objectId);
-                entity.remove = true;
-            }
+            entity?.Remove();
         }
 
         public IServerEntity FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
             {
+                if (entity.isRemoved)
+                {
+                    return null;
+                }
+                
                 return entity;
+            }
+            
+            if (_addEntities.TryGetValue(objectId, out var newEntity))
+            {
+                if (newEntity.isRemoved)
+                {
+                    return null;
+                }
+                
+                return newEntity;
             }
 
             return null;
@@ -52,27 +63,21 @@ namespace Server.Worlds
             return null;
         }
 
-        public void Process()
+        private void AddEntities()
         {
             if (_addEntities.Count > 0)
             {
-                for (int i = 0; i < _addEntities.Count; i++)
+                foreach (var pair in _addEntities)
                 {
-                    var pair = _addEntities[i];
-                    _entities.Add(pair.objectId, pair.entity);
+                    _entities.Add(pair.Key, pair.Value);
                 }
-
+                
                 _addEntities.Clear();
             }
+        }
 
-            foreach (var entity in _entities)
-            {
-                if (!entity.Value.remove)
-                {
-                    entity.Value.Process();
-                }
-            }
-
+        private void RemoveEntities()
+        {
             if (_removeEntities.Count > 0)
             {
                 for (int i = 0; i < _removeEntities.Count; i++)
@@ -81,7 +86,26 @@ namespace Server.Worlds
                 }
 
                 _removeEntities.Clear();
+            }            
+        }
+        
+        public void Process()
+        {
+            AddEntities();
+            
+            foreach (var pair in _entities)
+            {
+                if (!pair.Value.isRemoved)
+                {
+                    pair.Value.Process();
+                }
+                else
+                {
+                    _removeEntities.Add(pair.Key);
+                }
             }
+
+            RemoveEntities();
         }
 
         public uint GetNewObjectId()

@@ -74,7 +74,7 @@ namespace Server.Simulations
         private void Client_Disconnected(object sender, ClientDisconnectedEventArgs e)
         {
             UnityEngine.Debug.Log("disconnect player");
-            _requests.Enqueue(new DisconnectPlayerRequest(e.IpPort, _world, _players));
+            _requests.Enqueue(new DisconnectPlayerRequest(e.IpPort, _players));
         }
 
         private void Client_Connected(object sender, ClientConnectedEventArgs e)

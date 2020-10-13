@@ -9,13 +9,22 @@ namespace Client.Factories
     {
         public static IClientEntity Create(ref int offset, byte[] buffer)
         {
-            var type = (GameEntityType)SerializeUtil.GetInt(ref offset, buffer, false);
+            int localOffset = offset;
+            var type = (GameEntityType)SerializeUtil.GetByte(ref localOffset, buffer);
+            var objectId = SerializeUtil.GetUInt(ref localOffset, buffer);
 
             IClientEntity entity = null;
             switch (type)
             {
                 case GameEntityType.Player:
-                    entity = new ClientPlayer();
+                    if (objectId == ClientLocalPlayer.localObjectId)
+                    {
+                        entity = new ClientLocalPlayer();
+                    }
+                    else
+                    {
+                        entity = new ClientPlayer();
+                    }
                     break;
             }
             

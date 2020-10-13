@@ -6,7 +6,8 @@ namespace Server.Entities._Base
 {
     public interface IServerEntity : ISharedEntity, ISerializable
     {
-        bool remove { get; set; }
+        bool isRemoved { get; }
         IServerWorld world { get; set; }
+        void Remove();
     }
 }

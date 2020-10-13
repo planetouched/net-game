@@ -12,7 +12,7 @@ namespace Server.Entities
 {
     public class ServerPlayer : SharedPlayerBase, IServerEntity
     {
-        public bool remove { get; set; }
+        public bool isRemoved { get; private set; }
         public IServerWorld world { get; set; }
         public string ipPort { get; }
         public ByteToMessageDecoder byteToMessageDecoder { get; } = new ByteToMessageDecoder(SharedSettings.MaxMessageSize);
@@ -47,6 +47,11 @@ namespace Server.Entities
             SerializeUtil.SetUInt(lastMessageNum, ref offset, buffer);
             SerializeUtil.SetVector3(position, ref offset, buffer);
             SerializeUtil.SetVector3(rotation, ref offset, buffer);
+        }
+        
+        public void Remove()
+        {
+            isRemoved = true;
         }
     }
 }

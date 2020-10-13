@@ -8,7 +8,7 @@ namespace Client.Worlds
 {
     public class ClientWorldSnapshot
     {
-        private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>(1024);
+        public Dictionary<uint, IClientEntity> snapshotEntities { get; } = new Dictionary<uint, IClientEntity>(1024);
 
         public ClientWorldSnapshot(WorldSnapshotMessage message)
         {
@@ -21,13 +21,13 @@ namespace Client.Worlds
             while (offset < bufferSize)
             {
                 var entity = ClientEntityFactory.Create(ref offset, buffer);
-                _entities.Add(entity.objectId, entity);
+                snapshotEntities.Add(entity.objectId, entity);
             }
         }
 
         public IClientEntity FindEntity(uint objectId)
         {
-            if (_entities.TryGetValue(objectId, out var entity))
+            if (snapshotEntities.TryGetValue(objectId, out var entity))
             {
                 return entity;
             }

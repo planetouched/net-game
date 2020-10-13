@@ -12,6 +12,8 @@ namespace Client
 
         private void Awake()
         {
+            Application.runInBackground = true;
+            
             if (!AppStart.isInit)
             {
                 Loops.Init();
