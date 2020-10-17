@@ -1,4 +1,5 @@
-﻿using Server.Worlds._Base;
+﻿using LiteNetLib.Utils;
+using Server.Worlds._Base;
 using Shared.Entities;
 
 namespace Server.Entities._Base
@@ -13,6 +14,25 @@ namespace Server.Entities._Base
             isRemoved = true;
         }
 
-        public abstract void Serialize(ref int offset, byte[] buffer);
+        protected void WriteHeader(NetDataWriter netDataWriter)
+        {
+            WriteHeader(netDataWriter, this);
+        }
+
+        public static void WriteHeader(NetDataWriter netDataWriter, ISharedEntity entity)
+        {
+            netDataWriter.Put((byte)entity.type);
+            netDataWriter.Put(entity.objectId);
+            
+            netDataWriter.Put(entity.position.X);
+            netDataWriter.Put(entity.position.Y);
+            netDataWriter.Put(entity.position.Z);
+            
+            netDataWriter.Put(entity.rotation.X);
+            netDataWriter.Put(entity.rotation.Y);
+            netDataWriter.Put(entity.rotation.Z);
+        }
+
+        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true);
     }
 }

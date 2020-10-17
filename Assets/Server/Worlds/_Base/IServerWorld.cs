@@ -10,6 +10,7 @@ namespace Server.Worlds._Base
         void RemoveEntity(uint objectId);
         IServerEntity FindEntity(uint objectId);
         T FindEntity<T>(uint objectId, GameEntityType type) where T : class;
+        bool Exists(uint objectId);
 
         void Process();
         uint GetNewObjectId();

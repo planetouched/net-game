@@ -1,5 +1,6 @@
 ﻿using Client.Entities;
 using Client.Entities._Base;
+using LiteNetLib.Utils;
 using Shared.Enums;
 using Shared.Utils;
 
@@ -7,11 +8,10 @@ namespace Client.Factories
 {
     public static class ClientEntityFactory
     {
-        public static IClientEntity Create(ref int offset, byte[] buffer)
+        public static IClientEntity Create(NetDataReader netDataReader)
         {
-            int localOffset = offset;
-            var type = (GameEntityType)SerializeUtil.GetByte(ref localOffset, buffer);
-            var objectId = SerializeUtil.GetUInt(ref localOffset, buffer);
+            var type = (GameEntityType)netDataReader.GetByte();
+            var objectId = netDataReader.PeekUInt();
 
             IClientEntity entity = null;
             switch (type)
@@ -28,7 +28,7 @@ namespace Client.Factories
                     break;
             }
             
-            entity?.Deserialize(ref offset, buffer);
+            entity?.Deserialize(netDataReader);
 
             return entity;
         }

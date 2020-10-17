@@ -9,7 +9,7 @@ namespace Shared.Entities
         public uint objectId { get; set; }
         public Vector3 position { get; set; }
         public Vector3 rotation { get; set; }
-        
+
         public abstract void Process();
     }
 }

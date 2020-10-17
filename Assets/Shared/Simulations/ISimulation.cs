@@ -2,8 +2,8 @@
 {
     public interface ISimulation
     {
-        void Start();
-        void Stop();
-        void Process();
+        void StartSimulation();
+        void StopSimulation();
+        void ProcessSimulation();
     }
 }

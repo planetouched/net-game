@@ -1,26 +1,23 @@
 ﻿using System.Collections.Generic;
 using Client.Entities._Base;
 using Client.Factories;
+using LiteNetLib.Utils;
 using Shared.Enums;
 using Shared.Messages.FromServer;
 
 namespace Client.Worlds
 {
-    public class ClientWorldSnapshot
+    public class WorldSnapshotWrapper
     {
-        public Dictionary<uint, IClientEntity> snapshotEntities { get; } = new Dictionary<uint, IClientEntity>(1024);
+        public Dictionary<uint, IClientEntity> snapshotEntities { get; } = new Dictionary<uint, IClientEntity>(256);
 
-        public ClientWorldSnapshot(WorldSnapshotMessage message)
+        public WorldSnapshotWrapper(WorldSnapshotMessage message)
         {
-            int offset = 0;
-            Deserialize(ref offset, message.data, message.snapshotSize);
-        }
-        
-        private void Deserialize(ref int offset, byte[] buffer, int bufferSize)
-        {
-            while (offset < bufferSize)
+            var netDataReader = new NetDataReader(message.worldData);
+            
+            while (!netDataReader.EndOfData)
             {
-                var entity = ClientEntityFactory.Create(ref offset, buffer);
+                var entity = ClientEntityFactory.Create(netDataReader);
                 snapshotEntities.Add(entity.objectId, entity);
             }
         }

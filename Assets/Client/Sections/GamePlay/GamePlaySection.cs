@@ -20,19 +20,19 @@ namespace Client.Sections.GamePlay
         {
             if (GUI.Button(new Rect(0, 0, 100, 100), "Run server"))
             {
-                _serverSimulation = new ServerSimulation("127.0.0.1", 12345, 1);
-                _serverSimulation.Start();
+                _serverSimulation = new ServerSimulation(12345, 1);
+                _serverSimulation.StartSimulation();
             }
             
             if (GUI.Button(new Rect(0, 200, 100, 100), "Stop server"))
             {
-                _serverSimulation.Stop();
+                _serverSimulation.StopSimulation();
             }
             
             if (GUI.Button(new Rect(300, 0, 100, 100), "Run client"))
             {
                 _clientSimulation = new ClientSimulation("127.0.0.1", 12345);
-                _clientSimulation.Start();
+                _clientSimulation.StartSimulation();
             }
             
             if (GUI.Button(new Rect(300, 200, 100, 100), "Stop client"))
@@ -43,7 +43,7 @@ namespace Client.Sections.GamePlay
 
         public override IFuture Drop()
         {
-            _serverSimulation?.Stop();
+            _serverSimulation?.StopSimulation();
             _clientSimulation?.Drop();
             return null;
         }

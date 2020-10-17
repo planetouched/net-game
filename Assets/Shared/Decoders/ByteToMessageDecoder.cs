@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Shared.Utils;
+using UnityEngine;
 
 namespace Shared.Decoders
 {
@@ -16,6 +17,7 @@ namespace Shared.Decoders
 
         public List<byte[]> Decode(byte[] bytes)
         {
+            Debug.Log(bytes.Length);
             List<byte[]> fullMessages = null;
             
             if (_bytesOffset + bytes.Length >= _storedBytes.Length)

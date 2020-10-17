@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Numerics;
 using Basement.OEPFramework.UnityEngine._Base;
+using LiteNetLib.Utils;
 using Shared.Entities;
 
 namespace Client.Entities._Base
@@ -27,7 +29,30 @@ namespace Client.Entities._Base
             isUsed = true;
         }
 
-        public abstract void Deserialize(ref int offset, byte[] buffer);
         public abstract void Create();
+
+        public abstract void Deserialize(NetDataReader netDataReader);
+
+        public static void ReadHeader(NetDataReader netDataReader, IClientEntity entity)
+        {
+            //skip type
+            entity.objectId = netDataReader.GetUInt();
+            
+            var pX = netDataReader.GetFloat();
+            var pY = netDataReader.GetFloat();
+            var pZ = netDataReader.GetFloat();
+            
+            var rX = netDataReader.GetFloat();
+            var rY = netDataReader.GetFloat();
+            var rZ = netDataReader.GetFloat();
+            
+            entity.position = new Vector3(pX, pY, pZ);
+            entity.rotation = new Vector3(rX, rY, rZ);
+        }
+        
+        protected void ReadHeader(NetDataReader netDataReader)
+        {
+            ReadHeader(netDataReader, this);
+        }
     }
 }

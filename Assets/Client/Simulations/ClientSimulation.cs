@@ -1,49 +1,47 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using Basement.OEPFramework.UnityEngine;
+﻿using System.Collections.Generic;
 using Basement.OEPFramework.UnityEngine.Behaviour;
 using Basement.OEPFramework.UnityEngine.Loop;
 using Client.Entities;
+using Client.Network;
 using Client.Worlds;
-using Shared;
-using Shared.Decoders;
+using LiteNetLib;
+using LiteNetLib.Utils;
 using Shared.Enums;
-using Shared.Factories;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
 using Shared.Simulations;
-using SimpleTcp;
 using UnityEngine;
 
 namespace Client.Simulations
 {
-    public class ClientSimulation : ControlLoopBehaviour, ISimulation
+    public class ClientSimulation : LoopBehaviour, ISimulation
     {
         //simulation
-        private ClientWorld _clientWorld;
+        private readonly ClientWorld _clientWorld;
 
-        private readonly List<ControlMessage> _messages = new List<ControlMessage>(128);
-        private readonly ConcurrentQueue<WorldSnapshotMessage> _snapshots = new ConcurrentQueue<WorldSnapshotMessage>();
+        private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
+        private readonly Queue<WorldSnapshotMessage> _worldSnapshotsPerTick = new Queue<WorldSnapshotMessage>();
 
         private uint _messageNum;
-        private uint _lastSnapshotNum;
-        private uint _gameId;
+        private uint _lastMessageFromServerNum;
+        private uint _lastProcessedSnapshotNum;
+        private int _gameId;
 
-        //network
-        private volatile SimpleTcpClient _tcpClient;
-        private readonly ByteToMessageDecoder _byteToMessageDecoder;
-        private readonly string _serverIp;
-        private readonly int _port;
-
+        private readonly NetDataWriter _netDataWriter;
+        private readonly ClientNetListener _clientNetListener;
+        
         public ClientSimulation(string serverIp, int port)
         {
-            _serverIp = serverIp;
-            _port = port;
-            _byteToMessageDecoder = new ByteToMessageDecoder(SharedSettings.MaxMessageSize);
+            _netDataWriter = new NetDataWriter(false, ushort.MaxValue);
+            _clientNetListener = new ClientNetListener(serverIp, port);
+            _clientNetListener.onIncomingMessage += ClientNetListener_IncomingMessage;
+            _clientNetListener.onConnect += ClientNetListener_Connect;
+            _clientNetListener.onDisconnect += ClientNetListener_Disconnect;
 
-            LoopOn(Loops.UPDATE, Process);
+            _clientWorld = new ClientWorld();
+            
+            LoopOn(Loops.UPDATE, ProcessSimulation);
         }
 
         private void FillControlMessage(ControlMessage message)
@@ -65,121 +63,108 @@ namespace Client.Simulations
             message.sensitivity = ClientSettings.MouseSensitivity;
         }
 
-        public void Start()
+        public void StartSimulation()
         {
-            if (_tcpClient != null) return;
-
-            _tcpClient = new SimpleTcpClient(_serverIp, _port, false, null, null);
-            _tcpClient.Events.Connected += Client_Connected;
-            _tcpClient.Events.Disconnected += Client_Disconnected;
-            _tcpClient.Events.DataReceived += Client_DataReceived;
-
-            _tcpClient.Settings.MutuallyAuthenticate = false;
-            _tcpClient.Settings.AcceptInvalidCertificates = true;
-
-            _tcpClient.Connect();
-
-            if (!_tcpClient.IsConnected)
-            {
-                Stop();
-            }
+            if (_clientNetListener.IsConnected) return;
+            _clientNetListener.Start();
+            Debug.Log("Client -> StartSimulation");
         }
 
-        public void Stop()
+        public void StopSimulation()
         {
-            if (_tcpClient == null) return;
-
-            _tcpClient.Events.Connected -= Client_Connected;
-            _tcpClient.Events.Disconnected -= Client_Disconnected;
-            _tcpClient.Events.DataReceived -= Client_DataReceived;
-            _tcpClient.Dispose();
+            if (!_clientNetListener.IsConnected) return;
+            _clientNetListener.Stop();
             
             ClientLocalPlayer.localObjectId = 0;
 
-            Sync.Add(() =>
-            {
-                Pause();
-                _clientWorld?.Drop();
-                _messages.Clear();
-                while (_snapshots.TryDequeue(out _)) {}
-                _tcpClient = null;
-                Debug.Log("Client -> Stop");
-
-            }, Loops.UPDATE);
+            _clientWorld.Clear();
+            _messagesHistory.Clear();
+            _worldSnapshotsPerTick.Clear();
+            Debug.Log("Client -> StopSimulation");
         }
 
-        public void Process()
+        public void ProcessSimulation()
         {
+            _clientNetListener.netManager.PollEvents();
+
+            if (!_clientNetListener.IsConnected)
+            {
+                return;
+            }
+            
             var localPlayer = _clientWorld.FindEntity<ClientLocalPlayer>(ClientLocalPlayer.localObjectId, GameEntityType.Player);
 
             if (localPlayer != null)
             {
-                var controlMessage = MessageFactory.Create<ControlMessage>(MessageIds.PlayerControl);
+                var controlMessage = new ControlMessage(++_messageNum, ClientLocalPlayer.localObjectId, _gameId);
                 FillControlMessage(controlMessage);
 
-                _messageNum++;
-                controlMessage.gameId = _gameId;
-                controlMessage.objectId = ClientLocalPlayer.localObjectId;
-                controlMessage.messageNum = _messageNum;
                 controlMessage.deltaTime = Time.deltaTime;
 
-                _messages.Add(controlMessage);
+                _messagesHistory.Add(controlMessage);
 
                 //prediction
                 localPlayer.AddControlMessage(controlMessage);
                 localPlayer.Process();
 
-                _tcpClient.Send(MessageBase.ConvertToBytes(controlMessage));
+                if (_clientNetListener.IsConnected)
+                {
+                    _clientNetListener.clientPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+                }
+                else
+                {
+                    StopSimulation();
+                }
             }
 
             //rewind
-            while (_snapshots.TryDequeue(out var snapshot))
+            while (_worldSnapshotsPerTick.Count > 0)
             {
-                if (snapshot.snapshotSize == 0) continue;
+                var snapshot = _worldSnapshotsPerTick.Dequeue();
+                
+                var snapshotView = new WorldSnapshotWrapper(snapshot);
 
-                var snapshotView = new ClientWorldSnapshot(snapshot);
-
-                if (_lastSnapshotNum < snapshot.snapshotNum)
+                if (_lastProcessedSnapshotNum < snapshot.snapshotNum)
                 {
                     if (localPlayer != null)
                     {
-                        Rewind(localPlayer, snapshotView);
+                        RewindPlayer(localPlayer, snapshotView);
                     }
 
                     _clientWorld.AddWorldSnapshot(snapshotView);
-                    _lastSnapshotNum = snapshot.snapshotNum;
+                    _lastProcessedSnapshotNum = snapshot.snapshotNum;
                 }
             }
 
             _clientWorld.Process();
         }
 
-        private void Rewind(ClientLocalPlayer localPlayer, ClientWorldSnapshot clientWorldSnapshot)
+        private void RewindPlayer(ClientLocalPlayer localPlayer, WorldSnapshotWrapper worldSnapshotWrapper)
         {
-            var playerOnServer = clientWorldSnapshot.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
+            var playerOnServer = worldSnapshotWrapper.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
 
-            while (_messages.Count > 0)
+            while (_messagesHistory.Count > 0)
             {
-                var message = _messages[0];
-                _messages.RemoveAt(0);
+                var message = _messagesHistory[0];
+                _messagesHistory.RemoveAt(0);
 
                 if (message.messageNum == playerOnServer.lastMessageNum)
                 {
                     localPlayer.position = playerOnServer.position;
                     localPlayer.rotation = playerOnServer.rotation;
 
-                    for (int i = 0; i < _messages.Count; i++)
+                    for (int i = 0; i < _messagesHistory.Count; i++)
                     {
-                        localPlayer.AddControlMessage(_messages[i]);
+                        localPlayer.AddControlMessage(_messagesHistory[i]);
                     }
 
                     localPlayer.Process();
-                    //Debug.Log("ok, applied messages: " + _messages.Count);
+                    Debug.Log("ok, applied messages: " + _messagesHistory.Count);
                     break;
                 }
             }
 
-            if (_messages.Count == 0 && _snapshots.Count > 0)
+            if (_messagesHistory.Count == 0 && _worldSnapshotsPerTick.Count > 0)
             {
                 localPlayer.position = playerOnServer.position;
                 localPlayer.rotation = playerOnServer.rotation;
@@ -187,60 +172,56 @@ namespace Client.Simulations
             }
         }
 
-        private void Client_DataReceived(object sender, DataReceivedFromServerEventArgs e)
+        private void ClientNetListener_Disconnect()
         {
-            var fullMessages = _byteToMessageDecoder.Decode(e.Data);
-
-            if (fullMessages != null)
-            {
-                for (int i = 0; i < fullMessages.Count; i++)
-                {
-                    ProcessMessage(MessageFactory.Create(fullMessages[i]));
-                }
-            }
+            StopSimulation();
         }
 
-        private void ProcessMessage(IMessage message)
+        private void ClientNetListener_Connect()
         {
+            Debug.Log("Client -> MTU: " + _clientNetListener.clientPeer.Mtu);
+            _clientNetListener.clientPeer.Send(new EnterGameMessage(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+        }
+        
+        private void ClientNetListener_IncomingMessage(IMessage message)
+        {
+            if (message.messageNum <= _lastMessageFromServerNum) return;
+            
+            _lastMessageFromServerNum = message.messageNum; 
+            
             if (ClientLocalPlayer.localObjectId != 0)
             {
-                switch (message.GetMessageId())
+                switch (message.messageId)
                 {
                     case MessageIds.WorldSnapshot:
                     {
                         var snapshot = (WorldSnapshotMessage) message;
-                        _snapshots.Enqueue(snapshot);
+                        _worldSnapshotsPerTick.Enqueue(snapshot);
                         break;
                     }
                 }
             }
             else
             {
-                if (message.GetMessageId() == MessageIds.ConnectAccepted)
+                if (message.messageId == MessageIds.ConnectAccepted)
                 {
-                    var connectAccepted = (ConnectAcceptedMessage) message;
+                    var connectAccepted = (EnterGameAcceptedMessage) message;
                     ClientLocalPlayer.localObjectId = connectAccepted.objectId;
                     _gameId = connectAccepted.gameId;
-                    _clientWorld = new ClientWorld();
-                    Sync.Add(Play, Loops.UPDATE);
                 }
             }
-        }
-
-        private void Client_Disconnected(object sender, EventArgs e)
-        {
-            Debug.Log("Client -> Disconnect");
-            Stop();
-        }
-
-        private void Client_Connected(object sender, EventArgs e)
-        {
         }
         
         public override void Drop()
         {
             if (dropped) return;
-            Stop();
+            
+            _clientNetListener.onIncomingMessage -= ClientNetListener_IncomingMessage;
+            _clientNetListener.onConnect -= ClientNetListener_Connect;
+            _clientNetListener.onDisconnect -= ClientNetListener_Disconnect;
+            
+            StopSimulation();
+            _clientNetListener.netManager.Stop();
             base.Drop();
         }
     }
