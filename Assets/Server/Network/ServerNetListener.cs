@@ -5,7 +5,7 @@ using LiteNetLib;
 using Shared.Factories;
 using Shared.Messages._Base;
 
-namespace Server.Sockets
+namespace Server.Network
 {
     public class ServerNetListener : INetEventListener
     {

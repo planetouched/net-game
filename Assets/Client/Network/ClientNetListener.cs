@@ -16,13 +16,13 @@ namespace Client.Network
         private readonly int _port;
 
         public NetManager netManager { get; }
-        public NetPeer clientPeer { get; private set; }
+        public NetPeer netPeer { get; private set; }
         
         public event Action<IMessage> onIncomingMessage;
         public event Action onConnect;
         public event Action onDisconnect;
 
-        public bool IsConnected => clientPeer != null && clientPeer.ConnectionState == ConnectionState.Connected;
+        public bool IsConnected => netPeer != null && netPeer.ConnectionState == ConnectionState.Connected;
     
         public ClientNetListener(string serverIp, int port)
         {
@@ -36,13 +36,13 @@ namespace Client.Network
 
         public void Start()
         {
-            clientPeer = netManager.Connect(_serverIp, _port, "net-game");
+            netPeer = netManager.Connect(_serverIp, _port, "net-game");
         }
 
         public void Stop()
         {
-            clientPeer.Disconnect();
-            clientPeer = null;
+            netPeer.Disconnect();
+            netPeer = null;
         }
         
         public void OnPeerConnected(NetPeer peer)

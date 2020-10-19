@@ -21,16 +21,17 @@ namespace Client.Simulations
         private readonly ClientWorld _clientWorld;
 
         private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
-        private readonly Queue<WorldSnapshotMessage> _worldSnapshotsPerTick = new Queue<WorldSnapshotMessage>();
+        private readonly List<WorldSnapshotMessage> _worldSnapshotsPerTick = new List<WorldSnapshotMessage>();
 
         private uint _messageNum;
         private uint _lastMessageFromServerNum;
         private uint _lastProcessedSnapshotNum;
         private int _gameId;
+        private bool _started;
 
         private readonly NetDataWriter _netDataWriter;
         private readonly ClientNetListener _clientNetListener;
-        
+
         public ClientSimulation(string serverIp, int port)
         {
             _netDataWriter = new NetDataWriter(false, ushort.MaxValue);
@@ -40,7 +41,7 @@ namespace Client.Simulations
             _clientNetListener.onDisconnect += ClientNetListener_Disconnect;
 
             _clientWorld = new ClientWorld();
-            
+
             LoopOn(Loops.UPDATE, ProcessSimulation);
         }
 
@@ -74,12 +75,13 @@ namespace Client.Simulations
         {
             if (!_clientNetListener.IsConnected) return;
             _clientNetListener.Stop();
-            
+
             ClientLocalPlayer.localObjectId = 0;
 
             _clientWorld.Clear();
             _messagesHistory.Clear();
             _worldSnapshotsPerTick.Clear();
+            _started = false;
             Debug.Log("Client -> StopSimulation");
         }
 
@@ -87,17 +89,16 @@ namespace Client.Simulations
         {
             _clientNetListener.netManager.PollEvents();
 
-            if (!_clientNetListener.IsConnected)
-            {
-                return;
-            }
-            
             var localPlayer = _clientWorld.FindEntity<ClientLocalPlayer>(ClientLocalPlayer.localObjectId, GameEntityType.Player);
 
             if (localPlayer != null)
             {
                 var controlMessage = new ControlMessage(++_messageNum, ClientLocalPlayer.localObjectId, _gameId);
-                FillControlMessage(controlMessage);
+
+                if (_started)
+                {
+                    FillControlMessage(controlMessage);
+                }
 
                 controlMessage.deltaTime = Time.deltaTime;
 
@@ -109,66 +110,74 @@ namespace Client.Simulations
 
                 if (_clientNetListener.IsConnected)
                 {
-                    _clientNetListener.clientPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+                    _clientNetListener.netPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
                 }
                 else
                 {
                     StopSimulation();
                 }
             }
-
-            //rewind
-            while (_worldSnapshotsPerTick.Count > 0)
+            
+            WorldSnapshotWrapper lastSnapshotView = null;
+            
+            for (int i = 0; i < _worldSnapshotsPerTick.Count; i++)
             {
-                var snapshot = _worldSnapshotsPerTick.Dequeue();
+                var snapshot = _worldSnapshotsPerTick[i];
                 
-                var snapshotView = new WorldSnapshotWrapper(snapshot);
-
                 if (_lastProcessedSnapshotNum < snapshot.snapshotNum)
                 {
-                    if (localPlayer != null)
-                    {
-                        RewindPlayer(localPlayer, snapshotView);
-                    }
-
-                    _clientWorld.AddWorldSnapshot(snapshotView);
+                    lastSnapshotView = new WorldSnapshotWrapper(snapshot);
+                    _clientWorld.AddWorldSnapshot(lastSnapshotView);
                     _lastProcessedSnapshotNum = snapshot.snapshotNum;
+                }
+            }
+
+            _worldSnapshotsPerTick.Clear();
+            
+            //rewind player
+            if (lastSnapshotView != null)
+            {
+                if (localPlayer != null)
+                {
+                    var serverPlayer = lastSnapshotView.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
+                    RewindPlayer(localPlayer, serverPlayer);
                 }
             }
 
             _clientWorld.Process();
         }
 
-        private void RewindPlayer(ClientLocalPlayer localPlayer, WorldSnapshotWrapper worldSnapshotWrapper)
+        private void RewindPlayer(ClientLocalPlayer localPlayer, ClientLocalPlayer serverPlayer)
         {
-            var playerOnServer = worldSnapshotWrapper.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
-
-            while (_messagesHistory.Count > 0)
+            bool find = false;
+            
+            for (int j = _messagesHistory.Count - 1; j >= 0; j--)
             {
-                var message = _messagesHistory[0];
-                _messagesHistory.RemoveAt(0);
-
-                if (message.messageNum == playerOnServer.lastMessageNum)
+                if (_messagesHistory[j].messageNum == serverPlayer.lastMessageNum)
                 {
-                    localPlayer.position = playerOnServer.position;
-                    localPlayer.rotation = playerOnServer.rotation;
-
+                    _messagesHistory.RemoveRange(0, j + 1);
+                    
+                    localPlayer.position = serverPlayer.position;
+                    localPlayer.rotation = serverPlayer.rotation;
+                    
                     for (int i = 0; i < _messagesHistory.Count; i++)
                     {
                         localPlayer.AddControlMessage(_messagesHistory[i]);
                     }
-
+                    
                     localPlayer.Process();
-                    Debug.Log("ok, applied messages: " + _messagesHistory.Count);
+
+                    //Debug.Log("ok, applied messages: " + _messagesHistory.Count);
+                    _started = find = true;
                     break;
                 }
             }
-
-            if (_messagesHistory.Count == 0 && _worldSnapshotsPerTick.Count > 0)
+            
+            if (!find)
             {
-                localPlayer.position = playerOnServer.position;
-                localPlayer.rotation = playerOnServer.rotation;
-                Debug.LogWarning("Client -> Something went wrong or no control messages");
+                localPlayer.position = serverPlayer.position;
+                localPlayer.rotation = serverPlayer.rotation;
+                Debug.LogWarning("Client -> MessageNum not found");
             }
         }
 
@@ -179,16 +188,20 @@ namespace Client.Simulations
 
         private void ClientNetListener_Connect()
         {
-            Debug.Log("Client -> MTU: " + _clientNetListener.clientPeer.Mtu);
-            _clientNetListener.clientPeer.Send(new EnterGameMessage(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+            Debug.Log("Client -> MTU: " + _clientNetListener.netPeer.Mtu);
+            _clientNetListener.netPeer.Send(new EnterGameMessage(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
         }
-        
+
         private void ClientNetListener_IncomingMessage(IMessage message)
         {
-            if (message.messageNum <= _lastMessageFromServerNum) return;
-            
-            _lastMessageFromServerNum = message.messageNum; 
-            
+            if (message.messageNum <= _lastMessageFromServerNum)
+            {
+                Debug.LogWarning("message.messageNum <= _lastMessageFromServerNum");
+                return;
+            }
+
+            _lastMessageFromServerNum = message.messageNum;
+
             if (ClientLocalPlayer.localObjectId != 0)
             {
                 switch (message.messageId)
@@ -196,7 +209,7 @@ namespace Client.Simulations
                     case MessageIds.WorldSnapshot:
                     {
                         var snapshot = (WorldSnapshotMessage) message;
-                        _worldSnapshotsPerTick.Enqueue(snapshot);
+                        _worldSnapshotsPerTick.Add(snapshot);
                         break;
                     }
                 }
@@ -211,15 +224,15 @@ namespace Client.Simulations
                 }
             }
         }
-        
+
         public override void Drop()
         {
             if (dropped) return;
-            
+
             _clientNetListener.onIncomingMessage -= ClientNetListener_IncomingMessage;
             _clientNetListener.onConnect -= ClientNetListener_Connect;
             _clientNetListener.onDisconnect -= ClientNetListener_Disconnect;
-            
+
             StopSimulation();
             _clientNetListener.netManager.Stop();
             base.Drop();

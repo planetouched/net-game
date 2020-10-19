@@ -5,7 +5,7 @@ using System.Threading;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Server.Entities;
-using Server.Sockets;
+using Server.Network;
 using Server.Worlds;
 using Server.Worlds._Base;
 using Shared.Enums;

@@ -14,7 +14,7 @@ namespace Server.Entities
         public IServerWorld world { get; set; }
         public uint lastMessageId { get; set; }
 
-        private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
+        private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(256);
 
         public ServerPlayer()
         {
@@ -24,7 +24,7 @@ namespace Server.Entities
         public override void AddControlMessage(ControlMessage message)
         {
             _controlMessages.Enqueue(message);
-            lastMessageNum = message.messageNum;
+            lastMessageNum  = message.messageNum;
         }
 
         public override void Process()

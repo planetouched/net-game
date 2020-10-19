@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Numerics;
 using Client.Entities;
 using Client.Entities._Base;
 using Shared.Enums;
@@ -10,6 +11,14 @@ namespace Client.Worlds
         private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
 
+        public ClientWorld()
+        {
+            /*
+            var c = new ClientLocalPlayer();
+            _entities.Add(0, c);
+            c.position = new Vector3(0, 1, 0);*/
+        }
+        
         public IClientEntity FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))

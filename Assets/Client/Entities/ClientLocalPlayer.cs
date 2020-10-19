@@ -50,14 +50,20 @@ namespace Client.Entities
 
         public override void Process()
         {
+            bool update = false;
+            
             while (_controlMessages.Count > 0)
             {
                 var message = _controlMessages.Dequeue();
                 Movement(message);
+                update = true;
             }
 
-            Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-            Camera.main.transform.position = position.ToUnity();
+            if (update)
+            {
+                Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
+                Camera.main.transform.position = position.ToUnity();
+            }
         }
 
         public void Drop()

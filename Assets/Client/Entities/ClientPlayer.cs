@@ -25,6 +25,8 @@ namespace Client.Entities
         public override void Deserialize(NetDataReader netDataReader)
         {
             ReadHeader(netDataReader);
+            //lastMessageNum = netDataReader.GetUInt();
+            netDataReader.SkipBytes(4);
         }
 
         public override void Process()
