@@ -1,57 +1,38 @@
 ﻿using System.Collections.Generic;
-using LiteNetLib.Utils;
 using Server.Entities._Base;
-using Server.Worlds._Base;
 using Shared.Entities;
-using Shared.Enums;
 using Shared.Messages.FromClient;
 
 namespace Server.Entities
 {
-    public class ServerPlayer : SharedPlayerBase, IServerEntity
+    public class ServerPlayer : ServerEntityBase
     {
-        public bool isRemoved { get; private set; }
-        public IServerWorld world { get; set; }
-        public uint lastMessageId { get; set; }
+        private readonly SharedPlayer _sharedPlayer;
 
         private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(256);
 
-        public ServerPlayer()
+        public ServerPlayer(SharedPlayer sharedPlayer) : base(sharedPlayer)
         {
-            type = GameEntityType.Player;
+            _sharedPlayer = sharedPlayer;
         }
-
-        public override void AddControlMessage(ControlMessage message)
+        
+        public void AddControlMessage(ControlMessage message)
         {
             _controlMessages.Enqueue(message);
-            lastMessageNum  = message.messageNum;
+            _sharedPlayer.lastMessageNum  = message.messageNum;
         }
 
-        public override void Process()
+        public override void Process(float deltaTime)
         {
             while (_controlMessages.Count > 0)
             {
                 var message = _controlMessages.Dequeue();
-                Movement(message);
+                var position = _sharedPlayer.position;
+                var rotation = _sharedPlayer.rotation;
+                SharedPlayerBehaviour.Movement(ref position, ref rotation, message);
+                _sharedPlayer.position = position;
+                _sharedPlayer.rotation = rotation;
             }
-        }
-        
-        public void Remove()
-        {
-            isRemoved = true;
-        }
-
-        public NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
-        {
-            if (resetBeforeWriting)
-            {
-                netDataWriter.Reset();
-            }
-
-            ServerEntityBase.WriteHeader(netDataWriter, this);
-            netDataWriter.Put(lastMessageNum);
-            
-            return netDataWriter;
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
-using System.Numerics;
 using Client.Entities;
 using Client.Entities._Base;
+using Client.Factories;
 using Shared.Enums;
 
 namespace Client.Worlds
@@ -11,14 +11,6 @@ namespace Client.Worlds
         private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
 
-        public ClientWorld()
-        {
-            /*
-            var c = new ClientLocalPlayer();
-            _entities.Add(0, c);
-            c.position = new Vector3(0, 1, 0);*/
-        }
-        
         public IClientEntity FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
@@ -42,6 +34,8 @@ namespace Client.Worlds
         
         public void AddWorldSnapshot(WorldSnapshotWrapper snapshotWrapper)
         {
+            _snapshotsHistory.Add(snapshotWrapper);
+
             foreach (var clientEntity in _entities.Values)
             {
                 clientEntity.UnUse();
@@ -52,21 +46,23 @@ namespace Client.Worlds
             foreach (var pair in snapshotWrapper.snapshotEntities)
             {
                 uint objectId = pair.Key;
-                var snapshotEntity = pair.Value;
+                var sharedEntity = pair.Value;
 
                 if (_entities.TryGetValue(objectId, out var foundEntity))
                 {
                     //update entity
                     foundEntity.Use();
-                    foundEntity.position = snapshotEntity.position;
-                    foundEntity.rotation = snapshotEntity.rotation;
+                    foundEntity.SetCurrentEntity(sharedEntity);
+                    foundEntity.SetServerDeltaTime(snapshotWrapper.serverDeltaTime);
                 }
                 else
                 {
                     //new entity
-                    snapshotEntity.Use();
-                    _entities.Add(objectId, snapshotEntity);
-                    snapshotEntity.Create();
+                    var clientEntity = ClientEntityFactory.Create(sharedEntity);
+                    clientEntity.Use();
+                    clientEntity.SetServerDeltaTime(snapshotWrapper.serverDeltaTime);
+                    clientEntity.Create();
+                    _entities.Add(objectId, clientEntity);
                 }
             }
             
@@ -80,8 +76,6 @@ namespace Client.Worlds
                     entitiesCopy[i].Drop();
                 }
             }
-            
-            _snapshotsHistory.Add(snapshotWrapper);
             
             if (_snapshotsHistory.Count > 256)
             {

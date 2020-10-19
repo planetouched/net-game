@@ -1,15 +1,14 @@
 ﻿using System.Numerics;
+using Shared.CommonInterfaces;
 using Shared.Enums;
 
-namespace Shared.Entities
+namespace Shared.Entities._Base
 {
-    public interface ISharedEntity
+    public interface ISharedEntity : ISerializable, IDeserializable
     {
         GameEntityType type { get; }
         uint objectId { get; set; }
         Vector3 position { get; set; }
         Vector3 rotation { get; set; }
-        
-        void Process();
     }
 }

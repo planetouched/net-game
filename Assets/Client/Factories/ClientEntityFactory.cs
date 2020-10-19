@@ -1,23 +1,21 @@
-﻿using Client.Entities;
+﻿using System;
+using Client.Entities;
 using Client.Entities._Base;
-using LiteNetLib.Utils;
+using Shared.Entities._Base;
 using Shared.Enums;
-using Shared.Utils;
 
 namespace Client.Factories
 {
     public static class ClientEntityFactory
     {
-        public static IClientEntity Create(NetDataReader netDataReader)
+        public static IClientEntity Create(ISharedEntity sharedEntity)
         {
-            var type = (GameEntityType)netDataReader.GetByte();
-            var objectId = netDataReader.PeekUInt();
-
             IClientEntity entity = null;
-            switch (type)
+            
+            switch (sharedEntity.type)
             {
                 case GameEntityType.Player:
-                    if (objectId == ClientLocalPlayer.localObjectId)
+                    if (sharedEntity.objectId == ClientLocalPlayer.localObjectId)
                     {
                         entity = new ClientLocalPlayer();
                     }
@@ -25,10 +23,16 @@ namespace Client.Factories
                     {
                         entity = new ClientPlayer();
                     }
+                    
                     break;
             }
+
+            if (entity == null)
+            {
+                throw new Exception("Entity not found");
+            }
             
-            entity?.Deserialize(netDataReader);
+            entity.SetCurrentEntity(sharedEntity);
 
             return entity;
         }

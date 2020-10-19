@@ -1,23 +1,19 @@
-﻿using System;
-using System.Numerics;
-using Basement.OEPFramework.UnityEngine._Base;
-using LiteNetLib.Utils;
-using Shared.Entities;
+﻿using Basement.OEPFramework.UnityEngine._Base;
+using Shared.Entities._Base;
+using Shared.Enums;
 
 namespace Client.Entities._Base
 {
-    public abstract class ClientEntityBase : SharedEntityBase, IClientEntity
+    public abstract class ClientEntityBase : DroppableItemBase, IClientEntity
     {
-        public bool isUsed { get; private set; }
-        public bool dropped { get; private set; }
-        public event Action<IDroppableItem> onDrop;
+        public GameEntityType type => current.type;
+        public uint objectId => current.objectId;
         
-        public virtual void Drop()
-        {
-            if (dropped) return;
-            dropped = true;
-            onDrop?.Invoke(this);
-        }
+        public bool isUsed { get; private set; }
+        
+        protected ISharedEntity current;
+        protected ISharedEntity previous;
+        protected float serverDeltaTime;
 
         public void UnUse()
         {
@@ -29,30 +25,19 @@ namespace Client.Entities._Base
             isUsed = true;
         }
 
+        public virtual void SetCurrentEntity(ISharedEntity entity)
+        {
+            previous = current;
+            current = entity;
+        }
+
+        public void SetServerDeltaTime(float sDeltaTime)
+        {
+            serverDeltaTime = sDeltaTime;
+        }
+
+        public abstract void Process();
+
         public abstract void Create();
-
-        public abstract void Deserialize(NetDataReader netDataReader);
-
-        public static void ReadHeader(NetDataReader netDataReader, IClientEntity entity)
-        {
-            //skip type
-            entity.objectId = netDataReader.GetUInt();
-            
-            var pX = netDataReader.GetFloat();
-            var pY = netDataReader.GetFloat();
-            var pZ = netDataReader.GetFloat();
-            
-            var rX = netDataReader.GetFloat();
-            var rY = netDataReader.GetFloat();
-            var rZ = netDataReader.GetFloat();
-            
-            entity.position = new Vector3(pX, pY, pZ);
-            entity.rotation = new Vector3(rX, rY, rZ);
-        }
-        
-        protected void ReadHeader(NetDataReader netDataReader)
-        {
-            ReadHeader(netDataReader, this);
-        }
     }
 }

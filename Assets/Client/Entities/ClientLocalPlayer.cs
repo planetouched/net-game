@@ -1,51 +1,43 @@
-﻿using System;
-using System.Collections.Generic;
-using Basement.OEPFramework.UnityEngine._Base;
+﻿using System.Collections.Generic;
 using Client.Entities._Base;
 using Client.Utils;
-using LiteNetLib.Utils;
 using Shared.Entities;
-using Shared.Enums;
 using Shared.Messages.FromClient;
 using UnityEngine;
+using Vector3 = System.Numerics.Vector3;
 
 namespace Client.Entities
 {
-    public class ClientLocalPlayer : SharedPlayerBase, IClientEntity
+    public class ClientLocalPlayer : ClientEntityBase
     {
-        public bool isUsed { get; private set; }
-        public bool dropped { get; private set; }
-        public event Action<IDroppableItem> onDrop;
-        
-        public static uint localObjectId { get; set; } 
+        public static uint localObjectId { get; set; }
 
+        private Vector3 _position;
+        private Vector3 _rotation;
+        private Transform _cameraTransform;
+        
         private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
 
-        public ClientLocalPlayer()
+        public void SetCamera(Camera camera)
         {
-            type = GameEntityType.Player;
+            _cameraTransform = camera.transform;
         }
-
-        public override void AddControlMessage(ControlMessage message)
+        
+        public void AddControlMessage(ControlMessage message)
         {
             _controlMessages.Enqueue(message);
-            lastMessageNum = message.messageNum;
         }
 
-        public void Create()
+        public void SetPosition(Vector3 position, Vector3 rotation)
         {
-            Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-            Camera.main.transform.position = position.ToUnity();
+            _position = position;
+            _rotation = rotation;
         }
-
-        public void UnUse()
+        
+        public override void Create()
         {
-            isUsed = false;
-        }
-
-        public void Use()
-        {
-            isUsed = true;
+            _position = current.position;
+            _rotation = current.rotation;
         }
 
         public override void Process()
@@ -55,28 +47,15 @@ namespace Client.Entities
             while (_controlMessages.Count > 0)
             {
                 var message = _controlMessages.Dequeue();
-                Movement(message);
+                SharedPlayerBehaviour.Movement(ref _position, ref _rotation, message);
                 update = true;
             }
 
             if (update)
             {
-                Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-                Camera.main.transform.position = position.ToUnity();
+                _cameraTransform.rotation = Quaternion.Euler(_rotation.ToUnity());
+                _cameraTransform.position = _position.ToUnity();
             }
-        }
-
-        public void Drop()
-        {
-            if (dropped) return;
-            dropped = true;
-            onDrop?.Invoke(this);
-        }
-
-        public void Deserialize(NetDataReader netDataReader)
-        {
-            ClientEntityBase.ReadHeader(netDataReader, this);
-            lastMessageNum = netDataReader.GetUInt();
         }
     }
 }

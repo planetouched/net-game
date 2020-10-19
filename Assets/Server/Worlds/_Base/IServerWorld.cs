@@ -12,7 +12,7 @@ namespace Server.Worlds._Base
         T FindEntity<T>(uint objectId, GameEntityType type) where T : class;
         bool Exists(uint objectId);
 
-        void Process();
+        void Process(float deltaTime);
         uint GetNewObjectId();
     }
 }

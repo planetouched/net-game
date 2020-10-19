@@ -6,6 +6,7 @@ using Client.Network;
 using Client.Worlds;
 using LiteNetLib;
 using LiteNetLib.Utils;
+using Shared.Entities;
 using Shared.Enums;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
@@ -93,6 +94,7 @@ namespace Client.Simulations
 
             if (localPlayer != null)
             {
+                localPlayer.SetCamera(Camera.main);
                 var controlMessage = new ControlMessage(++_messageNum, ClientLocalPlayer.localObjectId, _gameId);
 
                 if (_started)
@@ -139,7 +141,7 @@ namespace Client.Simulations
             {
                 if (localPlayer != null)
                 {
-                    var serverPlayer = lastSnapshotView.FindEntity<ClientLocalPlayer>(localPlayer.objectId, GameEntityType.Player);
+                    var serverPlayer = lastSnapshotView.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
                     RewindPlayer(localPlayer, serverPlayer);
                 }
             }
@@ -147,7 +149,7 @@ namespace Client.Simulations
             _clientWorld.Process();
         }
 
-        private void RewindPlayer(ClientLocalPlayer localPlayer, ClientLocalPlayer serverPlayer)
+        private void RewindPlayer(ClientLocalPlayer localPlayer, SharedPlayer serverPlayer)
         {
             bool find = false;
             
@@ -156,9 +158,7 @@ namespace Client.Simulations
                 if (_messagesHistory[j].messageNum == serverPlayer.lastMessageNum)
                 {
                     _messagesHistory.RemoveRange(0, j + 1);
-                    
-                    localPlayer.position = serverPlayer.position;
-                    localPlayer.rotation = serverPlayer.rotation;
+                    localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
                     
                     for (int i = 0; i < _messagesHistory.Count; i++)
                     {
@@ -175,8 +175,7 @@ namespace Client.Simulations
             
             if (!find)
             {
-                localPlayer.position = serverPlayer.position;
-                localPlayer.rotation = serverPlayer.rotation;
+                localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
                 Debug.LogWarning("Client -> MessageNum not found");
             }
         }

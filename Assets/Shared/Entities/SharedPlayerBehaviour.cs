@@ -4,12 +4,9 @@ using Shared.Utils;
 
 namespace Shared.Entities
 {
-    public abstract class SharedPlayerBase : SharedEntityBase, ISharedPlayer
+    public static class SharedPlayerBehaviour
     {
-        public uint lastMessageNum { get; protected set; }
-        public abstract void AddControlMessage(ControlMessage message);
-        
-        protected void Movement(ControlMessage message)
+        public static void Movement(ref Vector3 position, ref Vector3 rotation, ControlMessage message)
         {
             Vector3 movement = Vector3.Zero;
 

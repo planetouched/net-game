@@ -1,7 +1,6 @@
 ﻿using Client.Entities._Base;
 using Client.Utils;
-using LiteNetLib.Utils;
-using Shared.Enums;
+using Shared.Entities._Base;
 using UnityEngine;
 
 namespace Client.Entities
@@ -9,30 +8,35 @@ namespace Client.Entities
     public class ClientPlayer : ClientEntityBase
     {
         private GameObject _go;
+        private float _progress;
 
-        public ClientPlayer()
+        public override void SetCurrentEntity(ISharedEntity entity)
         {
-            type = GameEntityType.Player;
+            _progress = 0;
+            base.SetCurrentEntity(entity);
         }
 
         public override void Create()
         {
             _go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            _go.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-            _go.transform.position = position.ToUnity();
-        }
-
-        public override void Deserialize(NetDataReader netDataReader)
-        {
-            ReadHeader(netDataReader);
-            //lastMessageNum = netDataReader.GetUInt();
-            netDataReader.SkipBytes(4);
+            _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
+            _go.transform.position = current.position.ToUnity();
         }
 
         public override void Process()
         {
-            _go.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-            _go.transform.position = position.ToUnity();
+            if (previous != null)
+            {
+                _progress += Time.deltaTime;
+                var k = Mathf.Min(1, _progress / serverDeltaTime);
+                _go.transform.position = Vector3.Lerp(previous.position.ToUnity(), current.position.ToUnity(), k);
+                _go.transform.rotation = Quaternion.Lerp(Quaternion.Euler(previous.rotation.ToUnity()), Quaternion.Euler(current.rotation.ToUnity()), k);
+            }
+            else
+            {
+                _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
+                _go.transform.position = current.position.ToUnity();
+            }
         }
 
         public override void Drop()

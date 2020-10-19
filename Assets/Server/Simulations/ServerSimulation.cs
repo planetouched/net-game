@@ -8,6 +8,7 @@ using Server.Entities;
 using Server.Network;
 using Server.Worlds;
 using Server.Worlds._Base;
+using Shared.Entities;
 using Shared.Enums;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
@@ -32,6 +33,8 @@ namespace Server.Simulations
         private readonly int _gameId;
         private readonly ServerNetListener _serverNetListener;
         private NetDataWriter _worldDataWriter;
+
+        private DateTime _lastTime;
 
         private readonly Dictionary<NetPeer, ServerPlayer> _players = new Dictionary<NetPeer, ServerPlayer>();
 
@@ -67,7 +70,7 @@ namespace Server.Simulations
         {
             if (!_players.ContainsKey(peer))
             {
-                _players.Add(peer, new ServerPlayer());
+                _players.Add(peer, new ServerPlayer(new SharedPlayer()));
             }
         }
 
@@ -75,7 +78,7 @@ namespace Server.Simulations
         {
             if (_players.ContainsKey(peer))
             {
-                _world.RemoveEntity(_players[peer].objectId);
+                _world.RemoveEntity(_players[peer].sharedEntity.objectId);
                 _players.Remove(peer);
             }
         }
@@ -84,13 +87,15 @@ namespace Server.Simulations
         {
             if (_players.TryGetValue(peer, out var player))
             {
-                if (player.lastMessageId >= message.messageNum) return;
+                var sharedPlayer = (SharedPlayer) player.sharedEntity;
+                
+                if (sharedPlayer.lastMessageNum >= message.messageNum) return;
                 
                 if (message.messageId == MessageIds.EnterGame)
                 {
                     _world.AddEntity(_world.GetNewObjectId(), player);
-                    peer.Send(new EnterGameAcceptedMessage(++_messageNum, player.objectId, _gameId).Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
-                    player.position = new Vector3(0, 1, 0);
+                    peer.Send(new EnterGameAcceptedMessage(++_messageNum, sharedPlayer.objectId, _gameId).Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
+                    sharedPlayer.position = new Vector3(0, 1, 0);
                 }
                 else
                 {
@@ -108,13 +113,17 @@ namespace Server.Simulations
 
         public void ProcessSimulation()
         {
-            _world.Process();
+            var currentTime = DateTime.UtcNow;
+            var deltaTime = (float)(currentTime - _lastTime).TotalSeconds; 
+            _lastTime = currentTime;
+            
+            _world.Process(deltaTime);
 
             try
             {
                 _worldDataWriter = _world.Serialize(_worldDataWriter);
 
-                var snapshot = new WorldSnapshotMessage(++_messageNum, MessageIds.WorldSnapshot, ++_snapshotNum, _worldDataWriter, _gameId);
+                var snapshot = new WorldSnapshotMessage(++_messageNum, MessageIds.WorldSnapshot, ++_snapshotNum, _worldDataWriter, _gameId, deltaTime);
                 snapshot.messages.AddRange(_messagesPerTick);
                 _messagesPerTick.Clear();
 
@@ -163,6 +172,8 @@ namespace Server.Simulations
             UnityEngine.Debug.Log("Thread_Tick: " + Thread.CurrentThread.ManagedThreadId);
             _update = true;
             int tickDelay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
+            _lastTime = DateTime.UtcNow;
+            Thread.Sleep(tickDelay);
 
             while (_update)
             {

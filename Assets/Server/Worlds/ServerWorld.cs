@@ -18,7 +18,7 @@ namespace Server.Worlds
         {
             _addEntities.Add(objectId, entity);
             entity.world = this;
-            entity.objectId = objectId;
+            entity.sharedEntity.objectId = objectId;
             return objectId;
         }
 
@@ -61,7 +61,7 @@ namespace Server.Worlds
         public T FindEntity<T>(uint objectId, GameEntityType type) where T : class
         {
             var entity = FindEntity(objectId);
-            if (entity != null && entity.type == type)
+            if (entity != null && entity.sharedEntity.type == type)
             {
                 return (T) entity;
             }
@@ -95,19 +95,22 @@ namespace Server.Worlds
             }            
         }
         
-        public void Process()
+        public void Process(float deltaTime)
         {
             AddEntities();
             
             foreach (var pair in _entities)
             {
-                if (!pair.Value.isRemoved)
+                var entity = pair.Value;
+                var objectId = pair.Key;
+                
+                if (!entity.isRemoved)
                 {
-                    pair.Value.Process();
+                    entity.Process(deltaTime);
                 }
                 else
                 {
-                    _removeEntities.Add(pair.Key);
+                    _removeEntities.Add(objectId);
                 }
             }
 
@@ -126,9 +129,9 @@ namespace Server.Worlds
                 netDataWriter.Reset();
             }
 
-            foreach (var pair in _entities)
+            foreach (var entity in _entities.Values)
             {
-                pair.Value.Serialize(netDataWriter, false);
+                entity.sharedEntity.Serialize(netDataWriter, false);
             }
             
             return netDataWriter;
