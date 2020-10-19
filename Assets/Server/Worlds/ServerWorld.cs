@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using LiteNetLib.Utils;
 using Server.Entities._Base;
 using Server.Worlds._Base;
 using Shared.Enums;
@@ -27,6 +28,11 @@ namespace Server.Worlds
             entity?.Remove();
         }
 
+        public bool Exists(uint objectId)
+        {
+            return _entities.ContainsKey(objectId);
+        }
+        
         public IServerEntity FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
@@ -113,12 +119,19 @@ namespace Server.Worlds
             return ++_globalObjectId;
         }
 
-        public void Serialize(ref int offset, byte[] buffer)
+        public NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
         {
+            if (resetBeforeWriting)
+            {
+                netDataWriter.Reset();
+            }
+
             foreach (var pair in _entities)
             {
-                pair.Value.Serialize(ref offset, buffer);
+                pair.Value.Serialize(netDataWriter, false);
             }
+            
+            return netDataWriter;
         }
     }
 }

@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 
 namespace Shared.Utils
 {
-    public static class SerializeUtil
+    public static class SerializeUtil1
     {
         #region serialize
 

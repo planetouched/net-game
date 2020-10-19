@@ -1,17 +1,24 @@
 ﻿using System.Collections.Generic;
-using Basement.OEPFramework.UnityEngine._Base;
+using System.Numerics;
 using Client.Entities;
 using Client.Entities._Base;
-using Client.Factories;
 using Shared.Enums;
 
 namespace Client.Worlds
 {
-    public class ClientWorld : DroppableItemBase
+    public class ClientWorld
     {
         private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
-        private readonly List<ClientWorldSnapshot> _snapshots = new List<ClientWorldSnapshot>();
+        private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
 
+        public ClientWorld()
+        {
+            /*
+            var c = new ClientLocalPlayer();
+            _entities.Add(0, c);
+            c.position = new Vector3(0, 1, 0);*/
+        }
+        
         public IClientEntity FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
@@ -33,7 +40,7 @@ namespace Client.Worlds
             return null;
         }
         
-        public void AddWorldSnapshot(ClientWorldSnapshot snapshot)
+        public void AddWorldSnapshot(WorldSnapshotWrapper snapshotWrapper)
         {
             foreach (var clientEntity in _entities.Values)
             {
@@ -42,7 +49,7 @@ namespace Client.Worlds
 
             FindEntity(ClientLocalPlayer.localObjectId)?.Use();
             
-            foreach (var pair in snapshot.snapshotEntities)
+            foreach (var pair in snapshotWrapper.snapshotEntities)
             {
                 uint objectId = pair.Key;
                 var snapshotEntity = pair.Value;
@@ -74,11 +81,11 @@ namespace Client.Worlds
                 }
             }
             
-            _snapshots.Add(snapshot);
+            _snapshotsHistory.Add(snapshotWrapper);
             
-            if (_snapshots.Count > 256)
+            if (_snapshotsHistory.Count > 256)
             {
-                _snapshots.RemoveAt(0);
+                _snapshotsHistory.RemoveAt(0);
             }
         }
 
@@ -90,18 +97,14 @@ namespace Client.Worlds
             }
         }
 
-        public override void Drop()
+        public void Clear()
         {
-            if (dropped) return;
-
             foreach (var entity in _entities.Values)
             {
                 entity.Drop();
             }
             
             _entities.Clear();
-            
-            base.Drop();
         }
     }
 }

@@ -1,7 +1,9 @@
-﻿namespace Shared.CommonInterfaces
+﻿using LiteNetLib.Utils;
+
+namespace Shared.CommonInterfaces
 {
     public interface ISerializable
     {
-        void Serialize(ref int offset, byte[] buffer);
+        NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true);
     }
 } 

@@ -1,7 +1,9 @@
-﻿namespace Shared.CommonInterfaces
+﻿using LiteNetLib.Utils;
+
+namespace Shared.CommonInterfaces
 {
     public interface IDeserializable
     {
-        void Deserialize(ref int offset, byte[] buffer);
+        void Deserialize(NetDataReader netDataReader);
     }
 }

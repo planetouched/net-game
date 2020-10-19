@@ -1,4 +1,5 @@
 ﻿using System;
+using LiteNetLib.Utils;
 using Shared.Enums;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
@@ -15,11 +16,8 @@ namespace Shared.Factories
             switch (messageId)
             {
                 //client 
-                case MessageIds.Connect:
-                    message = new ConnectMessage();
-                    break;
-                case MessageIds.Disconnect:
-                    message = new DisconnectMessage();
+                case MessageIds.EnterGame:
+                    message = new EnterGameMessage();
                     break;
                 case MessageIds.PlayerControl:
                     message = new ControlMessage();
@@ -27,7 +25,7 @@ namespace Shared.Factories
 
                 //server
                 case MessageIds.ConnectAccepted:
-                    message = new ConnectAcceptedMessage();
+                    message = new EnterGameAcceptedMessage();
                     break;
                 case MessageIds.WorldSnapshot:
                     message = new WorldSnapshotMessage();
@@ -42,13 +40,12 @@ namespace Shared.Factories
             throw new Exception("packetID not implemented");
         }
 
-        public static IMessage Create(byte[] data)
+        public static IMessage Create(NetDataReader netDataReader)
         {
-            var messageId = MessageBase.GetMessageId(data);
+            var messageId = (MessageIds) netDataReader.PeekByte();
             var message = Create<IMessage>(messageId);
 
-            int offset = 0;
-            message.Deserialize(ref offset, data);
+            message.Deserialize(netDataReader);
             return message;
         }
     }

@@ -1,7 +1,6 @@
-﻿using System;
+﻿using LiteNetLib.Utils;
 using Shared.Enums;
 using Shared.Messages._Base;
-using Shared.Utils;
 
 namespace Shared.Messages.FromClient
 {
@@ -12,17 +11,16 @@ namespace Shared.Messages.FromClient
         Left = 2,
         Right = 3
     }
-
+    
     public class ControlMessage : MessageBase
     {
-        public uint messageNum { get; set; }
-        
         public float deltaTime { get; set; }
         public float sensitivity { get; set; }
-        private int _keys;
 
         public float mouseX { get; set; }
         public float mouseY { get; set; }
+        
+        private int _keys;
 
         public bool forward
         {
@@ -48,11 +46,6 @@ namespace Shared.Messages.FromClient
             set => SetBit(ControlMessageActions.Right, value);
         }
 
-        public ControlMessage()
-        {
-            messageId = (byte)MessageIds.PlayerControl;
-        }
-        
         private bool CheckBit(ControlMessageActions action)
         {
             int mask = 1 << (int) action;
@@ -70,38 +63,37 @@ namespace Shared.Messages.FromClient
                 _keys ^= mask;
         }
 
-        public override void Serialize(ref int offset, byte[] buffer)
+        public ControlMessage()
         {
-            WriteHeader(ref offset, buffer);
-            SerializeUtil.SetUInt(messageNum, ref offset, buffer);
-            SerializeUtil.SetFloat(deltaTime, ref offset, buffer);
-            SerializeUtil.SetFloat(sensitivity, ref offset, buffer);
-            SerializeUtil.SetInt(_keys, ref offset, buffer);
-            SerializeUtil.SetFloat(mouseX, ref offset, buffer);
-            SerializeUtil.SetFloat(mouseY, ref offset, buffer);
-            SetMessageSize(offset, buffer);
-        }
-
-        public override void Deserialize(ref int offset, byte[] buffer)
-        {
-            ReadHeader(ref offset, buffer);
-            
-            if (MessageSize() != messageSize)
-            {
-                throw new Exception("MessageSize() != messageSize");
-            }
-            
-            messageNum = SerializeUtil.GetUInt(ref offset, buffer);
-            deltaTime = SerializeUtil.GetFloat(ref offset, buffer);
-            sensitivity = SerializeUtil.GetFloat(ref offset, buffer);
-            _keys = SerializeUtil.GetInt(ref offset, buffer);
-            mouseX = SerializeUtil.GetFloat(ref offset, buffer);
-            mouseY = SerializeUtil.GetFloat(ref offset, buffer);            
         }
         
-        public override int MessageSize()
+        public ControlMessage(uint messageNum, uint objectId, int gameId) : base(messageNum, MessageIds.PlayerControl, objectId, gameId)
         {
-            return HeaderSize + 24;
+        }
+        
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
+        {
+            if (resetBeforeWriting)
+                netDataWriter.Reset();
+            
+            WriteHeader(netDataWriter);
+            netDataWriter.Put(deltaTime);
+            netDataWriter.Put(sensitivity);
+            netDataWriter.Put(_keys);
+            netDataWriter.Put(mouseX);
+            netDataWriter.Put(mouseY);
+            
+            return netDataWriter;
+        }
+
+        public override void Deserialize(NetDataReader netDataReader)
+        {
+            ReadHeader(netDataReader);
+            deltaTime = netDataReader.GetFloat();
+            sensitivity = netDataReader.GetFloat();
+            _keys = netDataReader.GetInt();
+            mouseX = netDataReader.GetFloat();
+            mouseY = netDataReader.GetFloat();
         }
     }
 }

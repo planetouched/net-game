@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using Basement.OEPFramework.UnityEngine._Base;
 using Client.Entities._Base;
 using Client.Utils;
+using LiteNetLib.Utils;
 using Shared.Entities;
 using Shared.Enums;
 using Shared.Messages.FromClient;
-using Shared.Utils;
 using UnityEngine;
 
 namespace Client.Entities
@@ -50,23 +50,20 @@ namespace Client.Entities
 
         public override void Process()
         {
+            bool update = false;
+            
             while (_controlMessages.Count > 0)
             {
                 var message = _controlMessages.Dequeue();
                 Movement(message);
+                update = true;
             }
 
-            Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
-            Camera.main.transform.position = position.ToUnity();
-        }
-
-        public void Deserialize(ref int offset, byte[] buffer)
-        {
-            type = (GameEntityType) SerializeUtil.GetByte(ref offset, buffer);
-            objectId = SerializeUtil.GetUInt(ref offset, buffer);
-            lastMessageNum = SerializeUtil.GetUInt(ref offset, buffer);
-            position = SerializeUtil.GetVector3(ref offset, buffer);
-            rotation = SerializeUtil.GetVector3(ref offset, buffer);
+            if (update)
+            {
+                Camera.main.transform.rotation = Quaternion.Euler(rotation.ToUnity());
+                Camera.main.transform.position = position.ToUnity();
+            }
         }
 
         public void Drop()
@@ -74,6 +71,12 @@ namespace Client.Entities
             if (dropped) return;
             dropped = true;
             onDrop?.Invoke(this);
+        }
+
+        public void Deserialize(NetDataReader netDataReader)
+        {
+            ClientEntityBase.ReadHeader(netDataReader, this);
+            lastMessageNum = netDataReader.GetUInt();
         }
     }
 }

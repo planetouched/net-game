@@ -1,65 +1,44 @@
-﻿using Shared.Enums;
-using Shared.Factories;
-using Shared.Utils;
+﻿using LiteNetLib.Utils;
+using Shared.Enums;
 
 namespace Shared.Messages._Base
 {
     public abstract class MessageBase : IMessage
     {
-        public int messageSize { get; private set; }
-        public uint gameId { get; set; }
-        public byte messageId { get; protected set; }
-        public uint objectId { get; set; }
+        public MessageIds messageId { get; private set; }
+        public uint messageNum { get; private set; }
+        public int gameId { get; private set; }
+        public uint objectId { get; private set; }
 
-        protected const int HeaderSize = 13;
-
-        public abstract void Serialize(ref int offset, byte[] buffer);
-        public abstract void Deserialize(ref int offset, byte[] buffer);
-
-        public MessageIds GetMessageId()
+        protected MessageBase()
         {
-            return (MessageIds) messageId;
         }
 
-        public abstract int MessageSize();
-
-        protected void WriteHeader(ref int offset, byte[] buffer)
+        protected MessageBase(uint messageNum, MessageIds messageId, uint objectId, int gameId)
         {
-            offset += 4;
-            SerializeUtil.SetUInt(gameId, ref offset, buffer);
-            SerializeUtil.SetByte(messageId, ref offset, buffer);
-            SerializeUtil.SetUInt(objectId, ref offset, buffer);
+            this.messageNum = messageNum;
+            this.messageId = messageId;
+            this.objectId = objectId;
+            this.gameId = gameId;
         }
 
-        protected void SetMessageSize(int mSize, byte[] buffer)
+        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true);
+        public abstract void Deserialize(NetDataReader netDataReader);
+
+        protected void WriteHeader(NetDataWriter netDataWriter)
         {
-            int offset = 0;
-            messageSize = mSize;
-            SerializeUtil.SetInt(mSize, ref offset, buffer);
+            netDataWriter.Put((byte) messageId);
+            netDataWriter.Put(messageNum);
+            netDataWriter.Put(gameId);
+            netDataWriter.Put(objectId);
         }
 
-        protected void ReadHeader(ref int offset, byte[] buffer)
+        protected void ReadHeader(NetDataReader netDataReader)
         {
-            messageSize = SerializeUtil.GetInt(ref offset, buffer);
-            gameId = SerializeUtil.GetUInt(ref offset, buffer);
-            messageId = SerializeUtil.GetByte(ref offset, buffer);
-            objectId = SerializeUtil.GetUInt(ref offset, buffer);
-        }
-
-        public static MessageIds GetMessageId(byte[] buffer)
-        {
-            int offset = 4;
-            SerializeUtil.GetUInt(ref offset, buffer);
-            var messageId = (MessageIds) SerializeUtil.GetByte(ref offset, buffer);
-            return messageId;
-        }
-
-        public static byte[] ConvertToBytes(IMessage message)
-        {
-            var outputBuffer = new byte[message.MessageSize()];
-            int messageOffset = 0;
-            message.Serialize(ref messageOffset, outputBuffer);
-            return outputBuffer;
+            messageId = (MessageIds) netDataReader.GetByte();
+            messageNum = netDataReader.GetUInt();
+            gameId = netDataReader.GetInt();
+            objectId = netDataReader.GetUInt();
         }
     }
 }

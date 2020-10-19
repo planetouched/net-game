@@ -4,8 +4,7 @@
     {
         //from client
         PlayerControl,
-        Connect,
-        Disconnect,
+        EnterGame,
         
         //from server
         ConnectAccepted,
