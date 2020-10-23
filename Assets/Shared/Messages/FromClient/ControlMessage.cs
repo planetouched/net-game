@@ -67,8 +67,13 @@ namespace Shared.Messages.FromClient
         {
         }
         
-        public ControlMessage(uint messageNum, uint objectId, int gameId) : base(messageNum, MessageIds.PlayerControl, objectId, gameId)
+        public ControlMessage(uint objectId, int gameId) : base(0, MessageIds.PlayerControl, objectId, gameId)
         {
+        }
+
+        public void SetMessageNum(uint num)
+        {
+            messageNum = num;
         }
         
         public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)

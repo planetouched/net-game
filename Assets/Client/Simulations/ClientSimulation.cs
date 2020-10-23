@@ -22,6 +22,7 @@ namespace Client.Simulations
         private readonly ClientWorld _clientWorld;
 
         private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
+        private readonly List<ControlMessage> _sendToServer = new List<ControlMessage>(128);
         private readonly List<WorldSnapshotMessage> _worldSnapshotsPerTick = new List<WorldSnapshotMessage>();
 
         private uint _messageNum;
@@ -32,6 +33,7 @@ namespace Client.Simulations
 
         private readonly NetDataWriter _netDataWriter;
         private readonly ClientNetListener _clientNetListener;
+        private float _timeToSendElapsed;
 
         public ClientSimulation(string serverIp, int port)
         {
@@ -63,6 +65,8 @@ namespace Client.Simulations
             message.mouseX = Input.GetAxis("Mouse X");
             message.mouseY = -Input.GetAxis("Mouse Y");
             message.sensitivity = ClientSettings.MouseSensitivity;
+            message.deltaTime = Time.deltaTime;
+
         }
 
         public void StartSimulation()
@@ -74,9 +78,6 @@ namespace Client.Simulations
 
         public void StopSimulation()
         {
-            if (!_clientNetListener.IsConnected) return;
-            _clientNetListener.Stop();
-
             ClientLocalPlayer.localObjectId = 0;
 
             _clientWorld.Clear();
@@ -95,16 +96,15 @@ namespace Client.Simulations
             if (localPlayer != null)
             {
                 localPlayer.SetCamera(Camera.main);
-                var controlMessage = new ControlMessage(++_messageNum, ClientLocalPlayer.localObjectId, _gameId);
+                var controlMessage = new ControlMessage(ClientLocalPlayer.localObjectId, _gameId);
 
                 if (_started)
                 {
                     FillControlMessage(controlMessage);
                 }
 
-                controlMessage.deltaTime = Time.deltaTime;
-
                 _messagesHistory.Add(controlMessage);
+                _sendToServer.Add(controlMessage);
 
                 //prediction
                 localPlayer.AddControlMessage(controlMessage);
@@ -112,7 +112,23 @@ namespace Client.Simulations
 
                 if (_clientNetListener.IsConnected)
                 {
-                    _clientNetListener.netPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+                    _timeToSendElapsed += Time.deltaTime;
+                    
+                    if (_timeToSendElapsed >= Time.fixedDeltaTime)
+                    {
+                        _timeToSendElapsed -= Time.fixedDeltaTime;
+
+                        _netDataWriter.Reset();
+                    
+                        for (int i = 0; i < _sendToServer.Count; i++)
+                        {
+                            _sendToServer[i].SetMessageNum(++_messageNum);
+                            _sendToServer[i].Serialize(_netDataWriter, false);
+                        }
+                    
+                        _clientNetListener.netPeer.Send(_netDataWriter, DeliveryMethod.Unreliable);
+                        _sendToServer.Clear();
+                    }
                 }
                 else
                 {

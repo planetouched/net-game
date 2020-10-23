@@ -28,7 +28,7 @@ namespace Client.Entities
             if (previous != null)
             {
                 _progress += Time.deltaTime;
-                var k = Mathf.Min(1, _progress / serverDeltaTime);
+                var k = _progress / serverDeltaTime;
                 _go.transform.position = Vector3.Lerp(previous.position.ToUnity(), current.position.ToUnity(), k);
                 _go.transform.rotation = Quaternion.Lerp(Quaternion.Euler(previous.rotation.ToUnity()), Quaternion.Euler(current.rotation.ToUnity()), k);
             }

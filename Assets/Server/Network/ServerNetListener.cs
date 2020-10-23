@@ -2,7 +2,10 @@
 using System.Net;
 using System.Net.Sockets;
 using LiteNetLib;
+using LiteNetLib.Layers;
+using LiteNetLib.Utils;
 using Shared.Factories;
+using Shared.Loggers;
 using Shared.Messages._Base;
 
 namespace Server.Network
@@ -12,23 +15,27 @@ namespace Server.Network
         public NetManager netManager { get; }
 
         private readonly int _port;
-        
+
         public event Action<NetPeer, IMessage> onIncomingMessage;
         public event Action<NetPeer> onClientDisconnected;
         public event Action<NetPeer> onClientConnected;
-        
+
         public bool isStarted { get; private set; }
-        
+
         public ServerNetListener(int port)
         {
-            netManager = new NetManager(this);
-            netManager.BroadcastReceiveEnabled = true;
-            netManager.UpdateTime = 15;
+            if (port != -1)
+            {
+                netManager = new NetManager(this, new Crc32cLayer()) {UpdateTime = 15};
+            }
+
             _port = port;
         }
 
         public void Start()
         {
+            //var ip4 = IPAddress.Any.ToString();
+            //var ip6 = IPAddress.IPv6Any.ToString();
             isStarted = netManager.Start(_port);
         }
 
@@ -37,38 +44,46 @@ namespace Server.Network
             isStarted = false;
             netManager.Stop();
         }
-        
+
+        public void PollEvents()
+        {
+            netManager.PollEvents();
+        }
+
         public void OnPeerConnected(NetPeer peer)
         {
-            UnityEngine.Debug.Log("[SERVER] We have new peer " + peer.EndPoint);
+            Logger.Log("[SERVER] We have new peer " + peer.EndPoint);
             onClientConnected?.Invoke(peer);
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            UnityEngine.Debug.Log("[SERVER] peer disconnected " + peer.EndPoint + ", info: " + disconnectInfo.Reason);            
+            Logger.Log("[SERVER] peer disconnected " + peer.EndPoint + ", info: " + disconnectInfo.Reason);
             onClientDisconnected?.Invoke(peer);
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            UnityEngine.Debug.Log("[SERVER] error " + socketError);
+            Logger.Log("[SERVER] error " + socketError);
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod)
         {
-            var message = MessageFactory.Create(reader);
-            onIncomingMessage?.Invoke(peer, message);
+            while (reader.AvailableBytes > 0)
+            {
+                var message = MessageFactory.Create(reader);
+                onIncomingMessage?.Invoke(peer, message);
+            }
         }
 
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
         {
-            UnityEngine.Debug.Log("[SERVER] OnNetworkReceiveUnconnected");
+            Logger.Log("[SERVER] OnNetworkReceiveUnconnected");
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
         {
-            //UnityEngine.Debug.Log("[SERVER] OnNetworkLatencyUpdate");
+            //Logger.Log("[SERVER] OnNetworkLatencyUpdate");
         }
 
         public void OnConnectionRequest(ConnectionRequest request)

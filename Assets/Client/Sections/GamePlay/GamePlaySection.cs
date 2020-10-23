@@ -1,8 +1,10 @@
 ﻿using Basement.OEPFramework.Futures;
+using Client.Loggers;
 using Client.Sections._Base;
 using Client.Simulations;
 using Server.Simulations;
 using UnityEngine;
+using Logger = Shared.Loggers.Logger;
 
 namespace Client.Sections.GamePlay
 {
@@ -13,7 +15,8 @@ namespace Client.Sections.GamePlay
         
         protected override void Init()
         {
-            Debug.Log("start");
+            Logger.SetLogger(new UnityLogger());
+            Logger.Log("start");
         }
 
         private void OnGUI()
@@ -31,7 +34,9 @@ namespace Client.Sections.GamePlay
             
             if (GUI.Button(new Rect(300, 0, 100, 100), "Run client"))
             {
-                _clientSimulation = new ClientSimulation("127.0.0.1", 12345);
+                //string ip =  new System.Net.WebClient().DownloadString("https://api.ipify.org");
+                //_clientSimulation = new ClientSimulation("95.216.192.107", 12345);
+                _clientSimulation = new ClientSimulation("localhost", 12345);
                 _clientSimulation.StartSimulation();
             }
             

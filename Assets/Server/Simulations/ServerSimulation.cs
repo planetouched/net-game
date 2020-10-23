@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Numerics;
 using System.Threading;
 using LiteNetLib;
 using LiteNetLib.Utils;
@@ -14,6 +13,9 @@ using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
 using Shared.Simulations;
+using UnityEngine;
+using Logger = Shared.Loggers.Logger;
+using Vector3 = System.Numerics.Vector3;
 
 namespace Server.Simulations
 {
@@ -63,7 +65,7 @@ namespace Server.Simulations
             _tickThread = new Thread(Thread_Tick) {IsBackground = true};
             _tickThread.Start();
 
-            UnityEngine.Debug.Log("Server -> StartSimulation");
+            Logger.Log("Server -> StartSimulation");
         }
 
         private void ServerNetListener_ClientConnected(NetPeer peer)
@@ -164,12 +166,12 @@ namespace Server.Simulations
 
             _update = false;
             _tickThread?.Join();
-            UnityEngine.Debug.Log("Server -> StopSimulation");
+            Logger.Log("Server -> StopSimulation");
         }
 
         private void Thread_Tick()
         {
-            UnityEngine.Debug.Log("Thread_Tick: " + Thread.CurrentThread.ManagedThreadId);
+            Logger.Log("Thread_Tick: " + Thread.CurrentThread.ManagedThreadId);
             _update = true;
             int tickDelay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
             _lastTime = DateTime.UtcNow;
@@ -178,7 +180,7 @@ namespace Server.Simulations
             while (_update)
             {
                 ProcessSimulation();
-                _serverNetListener.netManager.PollEvents();
+                _serverNetListener.PollEvents();
                 Thread.Sleep(tickDelay);
             }
         }

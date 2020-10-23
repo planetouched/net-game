@@ -6,7 +6,7 @@ namespace Shared.Messages._Base
     public abstract class MessageBase : IMessage
     {
         public MessageIds messageId { get; private set; }
-        public uint messageNum { get; private set; }
+        public uint messageNum { get; protected set; }
         public int gameId { get; private set; }
         public uint objectId { get; private set; }
 

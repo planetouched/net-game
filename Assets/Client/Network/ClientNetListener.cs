@@ -5,7 +5,7 @@ using LiteNetLib;
 using LiteNetLib.Layers;
 using Shared.Factories;
 using Shared.Messages._Base;
-using UnityEngine;
+using Logger = Shared.Loggers.Logger;
 
 namespace Client.Network
 {
@@ -23,15 +23,20 @@ namespace Client.Network
         public event Action onDisconnect;
 
         public bool IsConnected => netPeer != null && netPeer.ConnectionState == ConnectionState.Connected;
+        
+        public bool isStarted { get; private set; }
     
         public ClientNetListener(string serverIp, int port)
         {
             _serverIp = serverIp;
             _port = port;
-            
-            netManager = new NetManager(this, new Crc32cLayer());
-            netManager.UpdateTime = 5;
-            netManager.Start();
+
+            if (port != -1)
+            {
+                netManager = new NetManager(this, new Crc32cLayer());
+                netManager.UpdateTime = 5;
+                netManager.Start();
+            }
         }
 
         public void Start()
@@ -44,44 +49,51 @@ namespace Client.Network
             netPeer.Disconnect();
             netPeer = null;
         }
-        
+
+        public void PollEvents()
+        {
+            netManager.PollEvents();
+        }
+
         public void OnPeerConnected(NetPeer peer)
         {
-            Debug.Log("[CLIENT] We connected to " + peer.EndPoint);
+            Logger.Log("[CLIENT] We connected to " + peer.EndPoint);
+            isStarted = true;
             onConnect?.Invoke();
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            Debug.Log("[CLIENT] We disconnected because " + disconnectInfo.Reason);
+            Logger.Log("[CLIENT] We disconnected because " + disconnectInfo.Reason);
+            isStarted = false;
             onDisconnect?.Invoke();
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            Debug.Log("[CLIENT] We received error " + socketError);
+            Logger.Log("[CLIENT] We received error " + socketError);
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod)
         {
             var message = MessageFactory.Create(reader);
-            //Debug.Log("[CLIENT] We received message " + message.messageId);
+            //Logger.Log("[CLIENT] We received message " + message.messageId);
             onIncomingMessage?.Invoke(message);
         }
 
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
         {
-            Debug.Log("[CLIENT] OnNetworkReceiveUnconnected");
+            Logger.Log("[CLIENT] OnNetworkReceiveUnconnected");
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
         {
-            //Debug.Log("[CLIENT] OnNetworkLatencyUpdate");
+            //Logger.Log("[CLIENT] OnNetworkLatencyUpdate");
         }
 
         public void OnConnectionRequest(ConnectionRequest request)
         {
-            Debug.Log("[CLIENT] OnConnectionRequest");
+            Logger.Log("[CLIENT] OnConnectionRequest");
         }
     }
 }
