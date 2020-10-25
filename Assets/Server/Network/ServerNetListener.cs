@@ -52,19 +52,19 @@ namespace Server.Network
 
         public void OnPeerConnected(NetPeer peer)
         {
-            Logger.Log("[SERVER] We have new peer " + peer.EndPoint);
+            Log.Write("[SERVER] We have new peer " + peer.EndPoint);
             onClientConnected?.Invoke(peer);
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            Logger.Log("[SERVER] peer disconnected " + peer.EndPoint + ", info: " + disconnectInfo.Reason);
+            Log.Write("[SERVER] peer disconnected " + peer.EndPoint + ", info: " + disconnectInfo.Reason);
             onClientDisconnected?.Invoke(peer);
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            Logger.Log("[SERVER] error " + socketError);
+            Log.Write("[SERVER] error " + socketError);
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod)
@@ -78,7 +78,7 @@ namespace Server.Network
 
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
         {
-            Logger.Log("[SERVER] OnNetworkReceiveUnconnected");
+            Log.Write("[SERVER] OnNetworkReceiveUnconnected");
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)

@@ -2,6 +2,7 @@
 using Client.Entities._Base;
 using Client.Utils;
 using Shared.Entities;
+using Shared.Entities._Base;
 using Shared.Messages.FromClient;
 using UnityEngine;
 using Vector3 = System.Numerics.Vector3;
@@ -16,8 +17,22 @@ namespace Client.Entities
         private Vector3 _rotation;
         private Transform _cameraTransform;
         
+        public ClientWeapon weapon { get; }
+        
         private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
 
+        public ClientLocalPlayer()
+        {
+            weapon = new ClientWeapon();
+        }
+        
+        public override void SetCurrentEntity(ISharedEntity entity)
+        {
+            var sharedPlayer = (SharedPlayer) entity;
+            weapon.SetCurrentEntity(sharedPlayer.weapon);
+            base.SetCurrentEntity(sharedPlayer);
+        }        
+        
         public void SetCamera(Camera camera)
         {
             _cameraTransform = camera.transform;
@@ -55,6 +70,8 @@ namespace Client.Entities
             {
                 _cameraTransform.rotation = Quaternion.Euler(_rotation.ToUnity());
                 _cameraTransform.position = _position.ToUnity();
+                weapon.SetPositionAndRotation(_position, _rotation);
+                weapon.Process();
             }
         }
     }

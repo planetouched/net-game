@@ -4,8 +4,8 @@ using System.Net.Sockets;
 using LiteNetLib;
 using LiteNetLib.Layers;
 using Shared.Factories;
+using Shared.Loggers;
 using Shared.Messages._Base;
-using Logger = Shared.Loggers.Logger;
 
 namespace Client.Network
 {
@@ -57,21 +57,21 @@ namespace Client.Network
 
         public void OnPeerConnected(NetPeer peer)
         {
-            Logger.Log("[CLIENT] We connected to " + peer.EndPoint);
+            Log.Write("[CLIENT] We connected to " + peer.EndPoint);
             isStarted = true;
             onConnect?.Invoke();
         }
 
         public void OnPeerDisconnected(NetPeer peer, DisconnectInfo disconnectInfo)
         {
-            Logger.Log("[CLIENT] We disconnected because " + disconnectInfo.Reason);
+            Log.Write("[CLIENT] We disconnected because " + disconnectInfo.Reason);
             isStarted = false;
             onDisconnect?.Invoke();
         }
 
         public void OnNetworkError(IPEndPoint endPoint, SocketError socketError)
         {
-            Logger.Log("[CLIENT] We received error " + socketError);
+            Log.Write("[CLIENT] We received error " + socketError);
         }
 
         public void OnNetworkReceive(NetPeer peer, NetPacketReader reader, DeliveryMethod deliveryMethod)
@@ -83,7 +83,7 @@ namespace Client.Network
 
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)
         {
-            Logger.Log("[CLIENT] OnNetworkReceiveUnconnected");
+            Log.Write("[CLIENT] OnNetworkReceiveUnconnected");
         }
 
         public void OnNetworkLatencyUpdate(NetPeer peer, int latency)
@@ -93,7 +93,7 @@ namespace Client.Network
 
         public void OnConnectionRequest(ConnectionRequest request)
         {
-            Logger.Log("[CLIENT] OnConnectionRequest");
+            Log.Write("[CLIENT] OnConnectionRequest");
         }
     }
 }

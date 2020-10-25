@@ -1,14 +1,17 @@
 ﻿using System.Collections.Generic;
 using LiteNetLib.Utils;
+using Server.Entities;
 using Shared.Enums;
 using Shared.Messages._Base;
+using Shared.Messages.FromClient;
 
 namespace Shared.Messages.FromServer
 {
     public class WorldSnapshotMessage : MessageBase
     {
-        public readonly List<IMessage> messages = new List<IMessage>();
+        public Dictionary<ServerPlayer, List<ControlMessage>> messages { get; } = new Dictionary<ServerPlayer, List<ControlMessage>>();
         public float deltaTime { get; private set; }
+        public float serverTime { get; private set; }
         public uint snapshotNum { get; private set; }
         public byte[] worldData { get; private set; }
 
@@ -17,14 +20,14 @@ namespace Shared.Messages.FromServer
         }
 
         public WorldSnapshotMessage(
-            uint messageNum,
-            MessageIds messageId,
             uint snapshotNum,
             NetDataWriter worldDataWriter,
-            int gameId,
-            float deltaTime
-        ) : base(messageNum, messageId, 0, gameId)
+            float deltaTime,
+            float serverTime
+            
+        ) : base(MessageIds.WorldSnapshot)
         {
+            this.serverTime = serverTime;
             this.deltaTime = deltaTime;
             this.snapshotNum = snapshotNum;
             var size = worldDataWriter.Length;
@@ -33,14 +36,24 @@ namespace Shared.Messages.FromServer
             netDataReader.GetBytes(worldData, size);
         }
 
-        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
+        public void AddControlMessage(ServerPlayer player, ControlMessage message)
         {
-            if (resetBeforeWriting)
-                netDataWriter.Reset();
+            if (messages.TryGetValue(player, out var list))
+            {
+                list.Add(message);
+            }
+            else
+            {
+                messages.Add(player, new List<ControlMessage> {message});
+            }
+        }
 
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter)
+        {
             WriteHeader(netDataWriter);
             netDataWriter.Put(snapshotNum);
             netDataWriter.Put(deltaTime);
+            netDataWriter.Put(serverTime);
             netDataWriter.PutBytesWithLength(worldData);
 
             return netDataWriter;
@@ -51,6 +64,7 @@ namespace Shared.Messages.FromServer
             ReadHeader(netDataReader);
             snapshotNum = netDataReader.GetUInt();
             deltaTime = netDataReader.GetFloat();
+            serverTime = netDataReader.GetFloat();
             worldData = netDataReader.GetBytesWithLength();
         }
     }

@@ -3,8 +3,8 @@ using Client.Loggers;
 using Client.Sections._Base;
 using Client.Simulations;
 using Server.Simulations;
+using Shared.Loggers;
 using UnityEngine;
-using Logger = Shared.Loggers.Logger;
 
 namespace Client.Sections.GamePlay
 {
@@ -15,8 +15,8 @@ namespace Client.Sections.GamePlay
         
         protected override void Init()
         {
-            Logger.SetLogger(new UnityLogger());
-            Logger.Log("start");
+            Log.SetLogger(new UnityLogger());
+            Log.Write("start");
         }
 
         private void OnGUI()

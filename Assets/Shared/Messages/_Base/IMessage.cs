@@ -9,5 +9,11 @@ namespace Shared.Messages._Base
         int gameId { get; }
         MessageIds messageId { get; }
         uint objectId { get; }
+        //float time { get; }
+
+        //IMessage SetTime(float t);
+        IMessage SetGameId(int id);
+        IMessage SetObjectId(uint id);
+        IMessage SetMessageNum(uint num);
     }
 }

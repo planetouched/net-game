@@ -9,12 +9,15 @@ namespace Shared.Messages.FromClient
         Forward = 0,
         Backward = 1,
         Left = 2,
-        Right = 3
+        Right = 3,
+        MouseButton0 = 4,
+        MouseButton1 = 5
     }
     
     public class ControlMessage : MessageBase
     {
         public float deltaTime { get; set; }
+        public float serverTime { get; set; }
         public float sensitivity { get; set; }
 
         public float mouseX { get; set; }
@@ -22,6 +25,18 @@ namespace Shared.Messages.FromClient
         
         private int _keys;
 
+        public bool mouseButton0
+        {
+            get => CheckBit(ControlMessageActions.MouseButton0);
+            set => SetBit(ControlMessageActions.MouseButton0, value);
+        }
+        
+        public bool mouseButton1
+        {
+            get => CheckBit(ControlMessageActions.MouseButton1);
+            set => SetBit(ControlMessageActions.MouseButton1, value);
+        }
+        
         public bool forward
         {
             get => CheckBit(ControlMessageActions.Forward);
@@ -63,26 +78,15 @@ namespace Shared.Messages.FromClient
                 _keys ^= mask;
         }
 
-        public ControlMessage()
-        {
-        }
-        
-        public ControlMessage(uint objectId, int gameId) : base(0, MessageIds.PlayerControl, objectId, gameId)
+        public ControlMessage() : base(MessageIds.PlayerControl)
         {
         }
 
-        public void SetMessageNum(uint num)
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter)
         {
-            messageNum = num;
-        }
-        
-        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
-        {
-            if (resetBeforeWriting)
-                netDataWriter.Reset();
-            
             WriteHeader(netDataWriter);
             netDataWriter.Put(deltaTime);
+            netDataWriter.Put(serverTime);
             netDataWriter.Put(sensitivity);
             netDataWriter.Put(_keys);
             netDataWriter.Put(mouseX);
@@ -95,6 +99,7 @@ namespace Shared.Messages.FromClient
         {
             ReadHeader(netDataReader);
             deltaTime = netDataReader.GetFloat();
+            serverTime = netDataReader.GetFloat();
             sensitivity = netDataReader.GetFloat();
             _keys = netDataReader.GetInt();
             mouseX = netDataReader.GetFloat();

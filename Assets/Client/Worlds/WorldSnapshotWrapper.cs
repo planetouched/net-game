@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Client.Entities._Base;
 using LiteNetLib.Utils;
 using Shared.Entities._Base;
 using Shared.Enums;
@@ -12,10 +11,13 @@ namespace Client.Worlds
     {
         public Dictionary<uint, ISharedEntity> snapshotEntities { get; } = new Dictionary<uint, ISharedEntity>(256);
         public float serverDeltaTime { get; }
+        public float serverTime { get; }
 
         public WorldSnapshotWrapper(WorldSnapshotMessage message)
         {
             serverDeltaTime = message.deltaTime;
+            serverTime = message.serverTime;
+            
             var netDataReader = new NetDataReader(message.worldData);
             
             while (!netDataReader.EndOfData)

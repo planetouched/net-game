@@ -1,21 +1,27 @@
 ﻿using LiteNetLib.Utils;
 using Shared.Entities._Base;
+using Shared.Enums;
 
 namespace Shared.Entities
 {
     public class SharedPlayer : SharedEntityBase
     {
         public uint lastMessageNum { get; set; }
+        public bool isAlive { get; set; }
         
-        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
-        {
-            if (resetBeforeWriting)
-            {
-                netDataWriter.Reset();
-            }
+        public SharedWeapon weapon { get; set; }
 
+        public SharedPlayer()
+        {
+            type = GameEntityType.Player;
+        }
+        
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter)
+        {
             WriteHeader(netDataWriter);
             netDataWriter.Put(lastMessageNum);
+            netDataWriter.Put(isAlive);
+            weapon.Serialize(netDataWriter);
             
             return netDataWriter;        
         }
@@ -23,7 +29,10 @@ namespace Shared.Entities
         public override void Deserialize(NetDataReader netDataReader)
         {
             ReadHeader(netDataReader);
-            lastMessageNum = netDataReader.GetUInt();        
+            lastMessageNum = netDataReader.GetUInt();
+            isAlive = netDataReader.GetBool();
+            weapon = new SharedWeapon();
+            weapon.Deserialize(netDataReader);
         }
     }
 }

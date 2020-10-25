@@ -25,7 +25,7 @@ namespace Shared.Entities._Base
             netDataWriter.Put(rotation.Z);
         }
 
-        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true);       
+        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter);       
         
         public abstract void Deserialize(NetDataReader netDataReader);
 

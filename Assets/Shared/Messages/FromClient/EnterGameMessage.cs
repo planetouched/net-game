@@ -6,19 +6,12 @@ namespace Shared.Messages.FromClient
 {
     public class EnterGameMessage : MessageBase
     {
-        public EnterGameMessage()
+        public EnterGameMessage() : base(MessageIds.EnterGame)
         {
         }
         
-        public EnterGameMessage(uint messageNum) : base(messageNum, MessageIds.EnterGame, 0, -1)
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter)
         {
-        }
-        
-        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
-        {
-            if (resetBeforeWriting)
-                netDataWriter.Reset();
-                
             WriteHeader(netDataWriter);
             
             return netDataWriter;

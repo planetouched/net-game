@@ -6,23 +6,45 @@ namespace Shared.Messages._Base
     public abstract class MessageBase : IMessage
     {
         public MessageIds messageId { get; private set; }
-        public uint messageNum { get; protected set; }
+        public uint messageNum { get; private set; }
         public int gameId { get; private set; }
         public uint objectId { get; private set; }
+        //public float time { get; private set;}
+        
+        // public IMessage SetTime(float t)
+        // {
+        //     time = t;
+        //     return this;
+        // }
+
+        public IMessage SetGameId(int id)
+        {
+            gameId = id;
+            return this;
+        }
+
+        public IMessage SetObjectId(uint id)
+        {
+            objectId = id;
+            return this;
+        }
+
+        public IMessage SetMessageNum(uint num)
+        {
+            messageNum = num;
+            return this;
+        }
 
         protected MessageBase()
         {
         }
 
-        protected MessageBase(uint messageNum, MessageIds messageId, uint objectId, int gameId)
+        protected MessageBase(MessageIds messageId)
         {
-            this.messageNum = messageNum;
             this.messageId = messageId;
-            this.objectId = objectId;
-            this.gameId = gameId;
         }
 
-        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true);
+        public abstract NetDataWriter Serialize(NetDataWriter netDataWriter);
         public abstract void Deserialize(NetDataReader netDataReader);
 
         protected void WriteHeader(NetDataWriter netDataWriter)
@@ -31,6 +53,7 @@ namespace Shared.Messages._Base
             netDataWriter.Put(messageNum);
             netDataWriter.Put(gameId);
             netDataWriter.Put(objectId);
+            //netDataWriter.Put(time);
         }
 
         protected void ReadHeader(NetDataReader netDataReader)
@@ -39,6 +62,7 @@ namespace Shared.Messages._Base
             messageNum = netDataReader.GetUInt();
             gameId = netDataReader.GetInt();
             objectId = netDataReader.GetUInt();
+            //time = netDataReader.GetFloat();
         }
     }
 }

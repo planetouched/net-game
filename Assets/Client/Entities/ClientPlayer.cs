@@ -1,5 +1,6 @@
 ﻿using Client.Entities._Base;
 using Client.Utils;
+using Shared.Entities;
 using Shared.Entities._Base;
 using UnityEngine;
 
@@ -9,11 +10,21 @@ namespace Client.Entities
     {
         private GameObject _go;
         private float _progress;
+        
+        public ClientWeapon weapon { get; }
 
+        public ClientPlayer()
+        {
+            weapon = new ClientWeapon();
+        }
+        
         public override void SetCurrentEntity(ISharedEntity entity)
         {
             _progress = 0;
-            base.SetCurrentEntity(entity);
+            var sharedPlayer = (SharedPlayer) entity;
+            
+            weapon.SetCurrentEntity(sharedPlayer.weapon);
+            base.SetCurrentEntity(sharedPlayer);
         }
 
         public override void Create()
@@ -37,6 +48,9 @@ namespace Client.Entities
                 _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
                 _go.transform.position = current.position.ToUnity();
             }
+            
+            weapon.SetPositionAndRotation(current.position, current.rotation);
+            weapon.Process();
         }
 
         public override void Drop()

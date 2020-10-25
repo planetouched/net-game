@@ -6,19 +6,12 @@ namespace Shared.Messages.FromServer
 {
     public class EnterGameAcceptedMessage : MessageBase
     {
-        public EnterGameAcceptedMessage()
+        public EnterGameAcceptedMessage() : base(MessageIds.ConnectAccepted)
         {
         }
         
-        public EnterGameAcceptedMessage(uint messageNum, uint objectId, int gameId) : base(messageNum, MessageIds.ConnectAccepted, objectId, gameId)
+        public override NetDataWriter Serialize(NetDataWriter netDataWriter)
         {
-        }
-        
-        public override NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
-        {
-            if (resetBeforeWriting)
-                netDataWriter.Reset();
-            
             WriteHeader(netDataWriter);
             
             return netDataWriter;

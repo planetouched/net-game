@@ -8,6 +8,7 @@ using LiteNetLib;
 using LiteNetLib.Utils;
 using Shared.Entities;
 using Shared.Enums;
+using Shared.Loggers;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
@@ -18,7 +19,6 @@ namespace Client.Simulations
 {
     public class ClientSimulation : LoopBehaviour, ISimulation
     {
-        //simulation
         private readonly ClientWorld _clientWorld;
 
         private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
@@ -62,18 +62,24 @@ namespace Client.Simulations
             if (Input.GetKey(KeyCode.D))
                 message.right = true;
 
+            if (Input.GetMouseButton(0))
+                message.mouseButton0 = true;
+            
+            if (Input.GetMouseButton(1))
+                message.mouseButton1 = true;
+
             message.mouseX = Input.GetAxis("Mouse X");
             message.mouseY = -Input.GetAxis("Mouse Y");
             message.sensitivity = ClientSettings.MouseSensitivity;
             message.deltaTime = Time.deltaTime;
-
+            message.serverTime = _clientWorld.serverTime;
         }
 
         public void StartSimulation()
         {
             if (_clientNetListener.IsConnected) return;
             _clientNetListener.Start();
-            Debug.Log("Client -> StartSimulation");
+            Log.Write("Client -> StartSimulation");
         }
 
         public void StopSimulation()
@@ -84,7 +90,7 @@ namespace Client.Simulations
             _messagesHistory.Clear();
             _worldSnapshotsPerTick.Clear();
             _started = false;
-            Debug.Log("Client -> StopSimulation");
+            Log.Write("Client -> StopSimulation");
         }
 
         public void ProcessSimulation()
@@ -96,7 +102,8 @@ namespace Client.Simulations
             if (localPlayer != null)
             {
                 localPlayer.SetCamera(Camera.main);
-                var controlMessage = new ControlMessage(ClientLocalPlayer.localObjectId, _gameId);
+                var controlMessage = new ControlMessage();
+                controlMessage.SetObjectId(ClientLocalPlayer.localObjectId).SetGameId(_gameId);
 
                 if (_started)
                 {
@@ -123,7 +130,7 @@ namespace Client.Simulations
                         for (int i = 0; i < _sendToServer.Count; i++)
                         {
                             _sendToServer[i].SetMessageNum(++_messageNum);
-                            _sendToServer[i].Serialize(_netDataWriter, false);
+                            _sendToServer[i].Serialize(_netDataWriter);
                         }
                     
                         _clientNetListener.netPeer.Send(_netDataWriter, DeliveryMethod.Unreliable);
@@ -192,7 +199,7 @@ namespace Client.Simulations
             if (!find)
             {
                 localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
-                Debug.LogWarning("Client -> MessageNum not found");
+                Log.WriteWarning("Client -> MessageNum not found");
             }
         }
 
@@ -203,15 +210,15 @@ namespace Client.Simulations
 
         private void ClientNetListener_Connect()
         {
-            Debug.Log("Client -> MTU: " + _clientNetListener.netPeer.Mtu);
-            _clientNetListener.netPeer.Send(new EnterGameMessage(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+            Log.Write("Client -> MTU: " + _clientNetListener.netPeer.Mtu);
+            _clientNetListener.netPeer.Send(new EnterGameMessage().SetMessageNum(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
         }
 
         private void ClientNetListener_IncomingMessage(IMessage message)
         {
             if (message.messageNum <= _lastMessageFromServerNum)
             {
-                Debug.LogWarning("message.messageNum <= _lastMessageFromServerNum");
+                Log.WriteWarning("message.messageNum <= _lastMessageFromServerNum");
                 return;
             }
 

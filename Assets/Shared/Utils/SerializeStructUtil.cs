@@ -4,39 +4,9 @@ using System.Runtime.InteropServices;
 
 namespace Shared.Utils
 {
-    public static class SerializeUtil1
+    public static class SerializeStructUtil
     {
         #region serialize
-
-        public static void SetByte(byte value, ref int offset, byte[] dest)
-        {
-            dest[offset] = value;
-            offset++;
-        }
-
-        public static void SetBool(bool value, ref int offset, byte[] dest)
-        {
-            dest[offset] = BitConverter.GetBytes(value)[0];
-            offset++;
-        }
-
-        public static void SetFloat(float value, ref int offset, byte[] dest)
-        {
-            Buffer.BlockCopy(BitConverter.GetBytes(value), 0, dest, offset, 4);
-            offset += 4;
-        }
-
-        public static void SetInt(int value, ref int offset, byte[] dest)
-        {
-            Buffer.BlockCopy(BitConverter.GetBytes(value), 0, dest, offset, 4);
-            offset += 4;
-        }
-
-        public static void SetUInt(uint value, ref int offset, byte[] dest)
-        {
-            Buffer.BlockCopy(BitConverter.GetBytes(value), 0, dest, offset, 4);
-            offset += 4;
-        }
 
         public static void SetVector2(Vector2 value, ref int offset, byte[] dest)
         {
@@ -67,46 +37,6 @@ namespace Shared.Utils
         #endregion
 
         #region deserialize
-
-        public static byte GetByte(ref int offset, byte[] buffer, bool shiftOffset = true)
-        {
-            var value = buffer[offset];
-            if (shiftOffset)
-                offset++;
-            return value;
-        }
-
-        public static bool GetBool(ref int offset, byte[] buffer, bool shiftOffset = true)
-        {
-            var value = BitConverter.ToBoolean(buffer, offset);
-            if (shiftOffset)
-                offset++;
-            return value;
-        }
-
-        public static float GetFloat(ref int offset, byte[] buffer, bool shiftOffset = true)
-        {
-            var value = BitConverter.ToSingle(buffer, offset);
-            if (shiftOffset)
-                offset += 4;
-            return value;
-        }
-
-        public static int GetInt(ref int offset, byte[] buffer, bool shiftOffset = true)
-        {
-            var value = BitConverter.ToInt32(buffer, offset);
-            if (shiftOffset)
-                offset += 4;
-            return value;
-        }
-
-        public static uint GetUInt(ref int offset, byte[] buffer, bool shiftOffset = true)
-        {
-            var value = BitConverter.ToUInt32(buffer, offset);
-            if (shiftOffset)
-                offset += 4;
-            return value;
-        }
 
         public static Vector2 GetVector2(ref int offset, byte[] buffer, bool shiftOffset = true)
         {

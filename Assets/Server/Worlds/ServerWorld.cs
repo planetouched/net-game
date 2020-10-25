@@ -1,8 +1,10 @@
 ﻿using System.Collections.Generic;
 using LiteNetLib.Utils;
+using Server.Entities;
 using Server.Entities._Base;
 using Server.Worlds._Base;
 using Shared.Enums;
+using Shared.Messages.FromClient;
 
 namespace Server.Worlds
 {
@@ -122,16 +124,23 @@ namespace Server.Worlds
             return ++_globalObjectId;
         }
 
-        public NetDataWriter Serialize(NetDataWriter netDataWriter, bool resetBeforeWriting = true)
+        public void Shot(IServerEntity entity, ControlMessage message)
         {
-            if (resetBeforeWriting)
+            var player = (ServerPlayer) entity;
+            
+            if (player.weapon.isInstant)
             {
-                netDataWriter.Reset();
+                //rewind world
             }
+        }
+        
+        public NetDataWriter Serialize(NetDataWriter netDataWriter)
+        {
+            netDataWriter.Reset();
 
             foreach (var entity in _entities.Values)
             {
-                entity.sharedEntity.Serialize(netDataWriter, false);
+                entity.sharedEntity.Serialize(netDataWriter);
             }
             
             return netDataWriter;

@@ -3,6 +3,7 @@ using Client.Entities;
 using Client.Entities._Base;
 using Client.Factories;
 using Shared.Enums;
+using UnityEngine;
 
 namespace Client.Worlds
 {
@@ -10,6 +11,8 @@ namespace Client.Worlds
     {
         private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
+        
+        public float serverTime { get; private set; }
 
         public IClientEntity FindEntity(uint objectId)
         {
@@ -35,6 +38,11 @@ namespace Client.Worlds
         public void AddWorldSnapshot(WorldSnapshotWrapper snapshotWrapper)
         {
             _snapshotsHistory.Add(snapshotWrapper);
+
+            if (_snapshotsHistory.Count > 1)
+            {
+                serverTime = _snapshotsHistory[_snapshotsHistory.Count - 2].serverTime;
+            }
 
             foreach (var clientEntity in _entities.Values)
             {
@@ -83,8 +91,11 @@ namespace Client.Worlds
             }
         }
 
+        //calls each frame
         public void Process()
         {
+            serverTime += Time.deltaTime;
+            
             foreach (var entity in _entities.Values)
             {
                 entity.Process();

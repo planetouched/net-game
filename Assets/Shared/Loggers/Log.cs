@@ -1,6 +1,6 @@
 ﻿namespace Shared.Loggers
 {
-    public static class Logger
+    public static class Log
     {
         private static ILogger _logger;
         
@@ -9,17 +9,17 @@
             _logger = logger;
         }
 
-        public static void Log(string str)
+        public static void Write(string str)
         {
             _logger.Log(str);
         }
 
-        public static void LogWarning(string str)
+        public static void WriteWarning(string str)
         {
             _logger.LogWarning(str);
         }
 
-        public static void LogError(string str)
+        public static void WriteError(string str)
         {
             _logger.LogError(str);
         }

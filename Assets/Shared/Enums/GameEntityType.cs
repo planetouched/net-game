@@ -2,6 +2,7 @@
 {
     public enum GameEntityType : byte
     {
-        Player
+        Player,
+        Weapon
     }
 }

@@ -9,12 +9,11 @@ using Server.Worlds;
 using Server.Worlds._Base;
 using Shared.Entities;
 using Shared.Enums;
+using Shared.Loggers;
 using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
 using Shared.Simulations;
-using UnityEngine;
-using Logger = Shared.Loggers.Logger;
 using Vector3 = System.Numerics.Vector3;
 
 namespace Server.Simulations
@@ -36,7 +35,8 @@ namespace Server.Simulations
         private readonly ServerNetListener _serverNetListener;
         private NetDataWriter _worldDataWriter;
 
-        private DateTime _lastTime;
+        private DateTime _lastTickTime;
+        private float _serverTime;
 
         private readonly Dictionary<NetPeer, ServerPlayer> _players = new Dictionary<NetPeer, ServerPlayer>();
 
@@ -65,7 +65,7 @@ namespace Server.Simulations
             _tickThread = new Thread(Thread_Tick) {IsBackground = true};
             _tickThread.Start();
 
-            Logger.Log("Server -> StartSimulation");
+            Log.Write("Server -> StartSimulation");
         }
 
         private void ServerNetListener_ClientConnected(NetPeer peer)
@@ -96,7 +96,7 @@ namespace Server.Simulations
                 if (message.messageId == MessageIds.EnterGame)
                 {
                     _world.AddEntity(_world.GetNewObjectId(), player);
-                    peer.Send(new EnterGameAcceptedMessage(++_messageNum, sharedPlayer.objectId, _gameId).Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
+                    peer.Send(new EnterGameAcceptedMessage().SetMessageNum(++_messageNum).SetObjectId(sharedPlayer.objectId).SetGameId(_gameId).Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
                     sharedPlayer.position = new Vector3(0, 1, 0);
                 }
                 else
@@ -116,17 +116,30 @@ namespace Server.Simulations
         public void ProcessSimulation()
         {
             var currentTime = DateTime.UtcNow;
-            var deltaTime = (float)(currentTime - _lastTime).TotalSeconds; 
-            _lastTime = currentTime;
+            var deltaTime = (float)(currentTime - _lastTickTime).TotalSeconds;
+            _serverTime += deltaTime; 
+            _lastTickTime = currentTime;
             
             _world.Process(deltaTime);
 
             try
             {
+                _worldDataWriter.Reset();
                 _worldDataWriter = _world.Serialize(_worldDataWriter);
+                var snapshot = new WorldSnapshotMessage(++_snapshotNum, _worldDataWriter, deltaTime, _serverTime);
+                snapshot.SetMessageNum(++_messageNum).SetGameId(_gameId);
 
-                var snapshot = new WorldSnapshotMessage(++_messageNum, MessageIds.WorldSnapshot, ++_snapshotNum, _worldDataWriter, _gameId, deltaTime);
-                snapshot.messages.AddRange(_messagesPerTick);
+                for (int i = 0; i < _messagesPerTick.Count; i++)
+                {
+                    var message = _messagesPerTick[i];
+                    var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
+                    
+                    if (player != null)
+                    {
+                        snapshot.AddControlMessage(player, message);
+                    }
+                }
+                
                 _messagesPerTick.Clear();
 
                 _snapshots.Add(snapshot);
@@ -166,16 +179,16 @@ namespace Server.Simulations
 
             _update = false;
             _tickThread?.Join();
-            Logger.Log("Server -> StopSimulation");
+            Log.Write("Server -> StopSimulation");
         }
 
         private void Thread_Tick()
         {
-            Logger.Log("Thread_Tick: " + Thread.CurrentThread.ManagedThreadId);
-            _update = true;
             int tickDelay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
-            _lastTime = DateTime.UtcNow;
-            Thread.Sleep(tickDelay);
+            
+            _update = true;
+            _lastTickTime = DateTime.UtcNow;
+            _serverTime = 0;
 
             while (_update)
             {
