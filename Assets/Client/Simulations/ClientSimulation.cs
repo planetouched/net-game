@@ -120,26 +120,6 @@ namespace Client.Simulations
                 {
                     _netDataWriter.Reset();
                     _clientNetListener.netPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
-                    
-                    /*
-                    //not working properly
-                    _timeToSendElapsed += Time.deltaTime;
-                    
-                    if (_timeToSendElapsed >= Time.fixedDeltaTime)
-                    {
-                        _timeToSendElapsed -= Time.fixedDeltaTime;
-
-                        _netDataWriter.Reset();
-                    
-                        for (int i = 0; i < _sendToServer.Count; i++)
-                        {
-                            _sendToServer[i].SetMessageNum(++_messageNum);
-                            _sendToServer[i].Serialize(_netDataWriter);
-                        }
-                    
-                        _clientNetListener.netPeer.Send(_netDataWriter, DeliveryMethod.Unreliable);
-                        _sendToServer.Clear();
-                    }*/
                 }
                 else
                 {
@@ -147,36 +127,19 @@ namespace Client.Simulations
                 }
             }
             
-            WorldSnapshotWrapper lastSnapshotView = null;
-
-            /*
-            for (int i = 0; i < _worldSnapshots.Count; i++)
-            {
-                var snapshot = _worldSnapshots[i];
-                
-                if (_lastProcessedSnapshotNum < snapshot.snapshotNum)
-                {
-                    lastSnapshotView = new WorldSnapshotWrapper(snapshot);
-                    _clientWorld.AddWorldSnapshot(lastSnapshotView);
-                    _lastProcessedSnapshotNum = snapshot.snapshotNum;
-                }
-            }
-
-            _worldSnapshots.Clear();*/
-            
             if (_lastSnapshot != null && _lastProcessedSnapshotNum < _lastSnapshot.snapshotNum)
             {
-                lastSnapshotView = new WorldSnapshotWrapper(_lastSnapshot);
-                _clientWorld.AddWorldSnapshot(lastSnapshotView);
+                var snapshotWrapper = new WorldSnapshotWrapper(_lastSnapshot);
+                _clientWorld.AddWorldSnapshot(snapshotWrapper);
                 _lastProcessedSnapshotNum = _lastSnapshot.snapshotNum;
                 _lastSnapshot = null;
-            }
-            
-            //rewind player
-            if (lastSnapshotView != null && localPlayer != null)
-            {
-                var serverPlayer = lastSnapshotView.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
-                RewindPlayer(localPlayer, serverPlayer);
+                
+                //rewind player
+                if (localPlayer != null)
+                {
+                    var serverPlayer = snapshotWrapper.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
+                    RewindPlayer(localPlayer, serverPlayer);
+                }
             }
 
             _clientWorld.Process();
