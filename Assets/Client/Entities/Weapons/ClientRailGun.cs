@@ -1,17 +1,22 @@
-﻿using Client.Entities._Base;
+﻿using Client.Entities.Weapons._Base;
+using Client.Utils;
+using UnityEngine;
 
 namespace Client.Entities.Weapons
 {
-    public class ClientRailGun : ClientEntityBase
+    public class ClientRailGun : ClientWeaponBase
     {
-        public override void Process()
-        {
-            throw new System.NotImplementedException();
-        }
-
         public override void Create()
         {
-            throw new System.NotImplementedException();
+            // railgun tps model
+        }
+
+        protected override void Shot()
+        {
+            var obj = Object.Instantiate(Resources.Load<GameObject>("RailGun/Prefabs/RailGun"));
+            obj.transform.position = position.ToUnity();
+            obj.transform.rotation = Quaternion.Euler(rotation.ToUnity());
+            obj.transform.Translate(Vector3.forward * 0.5f);
         }
     }
 }

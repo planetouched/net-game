@@ -1,13 +1,12 @@
 ﻿using System.Numerics;
 using Server.Entities._Base;
+using Shared;
 using Shared.Entities;
 
 namespace Server.Entities.Weapons
 {
     public class ServerWeapon : ServerEntityBase
     {
-        private const float ReloadTime = 2;
-
         private readonly SharedWeapon _sharedWeapon;
 
         public bool shot => _sharedWeapon.shot;
@@ -28,7 +27,7 @@ namespace Server.Entities.Weapons
         {
             if (value && _sharedWeapon.isReady)
             {
-                _sharedWeapon.timeToReady = ReloadTime;
+                _sharedWeapon.timeToReady = SharedSettings.RailGunReloadTime;
                 _sharedWeapon.shot = true;
             }
         }

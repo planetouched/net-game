@@ -126,7 +126,7 @@ namespace Server.Simulations
             {
                 _worldDataWriter.Reset();
                 _worldDataWriter = _world.Serialize(_worldDataWriter);
-                var snapshot = new WorldSnapshotMessage(++_snapshotNum, _worldDataWriter, deltaTime, _serverTime);
+                var snapshot = new WorldSnapshotMessage(++_snapshotNum, _worldDataWriter, _serverTime);
                 snapshot.SetMessageNum(++_messageNum).SetGameId(_gameId);
 
                 for (int i = 0; i < _messagesPerTick.Count; i++)

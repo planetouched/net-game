@@ -22,8 +22,8 @@ namespace Client.Simulations
         private readonly ClientWorld _clientWorld;
 
         private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
-        private readonly List<ControlMessage> _sendToServer = new List<ControlMessage>(128);
-        private readonly List<WorldSnapshotMessage> _worldSnapshotsPerTick = new List<WorldSnapshotMessage>();
+        //private readonly List<WorldSnapshotMessage> _worldSnapshots = new List<WorldSnapshotMessage>();
+        private WorldSnapshotMessage _lastSnapshot;
 
         private uint _messageNum;
         private uint _lastMessageFromServerNum;
@@ -33,7 +33,6 @@ namespace Client.Simulations
 
         private readonly NetDataWriter _netDataWriter;
         private readonly ClientNetListener _clientNetListener;
-        private float _timeToSendElapsed;
 
         public ClientSimulation(string serverIp, int port)
         {
@@ -72,7 +71,7 @@ namespace Client.Simulations
             message.mouseY = -Input.GetAxis("Mouse Y");
             message.sensitivity = ClientSettings.MouseSensitivity;
             message.deltaTime = Time.deltaTime;
-            message.serverTime = _clientWorld.serverTime;
+            message.serverTime = _clientWorld.currentServerTime;
         }
 
         public void StartSimulation()
@@ -88,7 +87,8 @@ namespace Client.Simulations
 
             _clientWorld.Clear();
             _messagesHistory.Clear();
-            _worldSnapshotsPerTick.Clear();
+            //_worldSnapshots.Clear();
+            _lastSnapshot = null;
             _started = false;
             Log.Write("Client -> StopSimulation");
         }
@@ -103,7 +103,7 @@ namespace Client.Simulations
             {
                 localPlayer.SetCamera(Camera.main);
                 var controlMessage = new ControlMessage();
-                controlMessage.SetObjectId(ClientLocalPlayer.localObjectId).SetGameId(_gameId);
+                controlMessage.SetObjectId(ClientLocalPlayer.localObjectId).SetGameId(_gameId).SetMessageNum(++_messageNum);
 
                 if (_started)
                 {
@@ -111,14 +111,18 @@ namespace Client.Simulations
                 }
 
                 _messagesHistory.Add(controlMessage);
-                _sendToServer.Add(controlMessage);
 
                 //prediction
-                localPlayer.AddControlMessage(controlMessage);
+                localPlayer.AddControlMessage(controlMessage, true);
                 localPlayer.Process();
 
                 if (_clientNetListener.IsConnected)
                 {
+                    _netDataWriter.Reset();
+                    _clientNetListener.netPeer.Send(controlMessage.Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+                    
+                    /*
+                    //not working properly
                     _timeToSendElapsed += Time.deltaTime;
                     
                     if (_timeToSendElapsed >= Time.fixedDeltaTime)
@@ -135,7 +139,7 @@ namespace Client.Simulations
                     
                         _clientNetListener.netPeer.Send(_netDataWriter, DeliveryMethod.Unreliable);
                         _sendToServer.Clear();
-                    }
+                    }*/
                 }
                 else
                 {
@@ -144,10 +148,11 @@ namespace Client.Simulations
             }
             
             WorldSnapshotWrapper lastSnapshotView = null;
-            
-            for (int i = 0; i < _worldSnapshotsPerTick.Count; i++)
+
+            /*
+            for (int i = 0; i < _worldSnapshots.Count; i++)
             {
-                var snapshot = _worldSnapshotsPerTick[i];
+                var snapshot = _worldSnapshots[i];
                 
                 if (_lastProcessedSnapshotNum < snapshot.snapshotNum)
                 {
@@ -157,16 +162,21 @@ namespace Client.Simulations
                 }
             }
 
-            _worldSnapshotsPerTick.Clear();
+            _worldSnapshots.Clear();*/
+            
+            if (_lastSnapshot != null && _lastProcessedSnapshotNum < _lastSnapshot.snapshotNum)
+            {
+                lastSnapshotView = new WorldSnapshotWrapper(_lastSnapshot);
+                _clientWorld.AddWorldSnapshot(lastSnapshotView);
+                _lastProcessedSnapshotNum = _lastSnapshot.snapshotNum;
+                _lastSnapshot = null;
+            }
             
             //rewind player
-            if (lastSnapshotView != null)
+            if (lastSnapshotView != null && localPlayer != null)
             {
-                if (localPlayer != null)
-                {
-                    var serverPlayer = lastSnapshotView.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
-                    RewindPlayer(localPlayer, serverPlayer);
-                }
+                var serverPlayer = lastSnapshotView.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
+                RewindPlayer(localPlayer, serverPlayer);
             }
 
             _clientWorld.Process();
@@ -185,7 +195,7 @@ namespace Client.Simulations
                     
                     for (int i = 0; i < _messagesHistory.Count; i++)
                     {
-                        localPlayer.AddControlMessage(_messagesHistory[i]);
+                        localPlayer.AddControlMessage(_messagesHistory[i], false);
                     }
                     
                     localPlayer.Process();
@@ -198,7 +208,7 @@ namespace Client.Simulations
             
             if (!find)
             {
-                localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
+                //localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
                 Log.WriteWarning("Client -> MessageNum not found");
             }
         }
@@ -231,7 +241,8 @@ namespace Client.Simulations
                     case MessageIds.WorldSnapshot:
                     {
                         var snapshot = (WorldSnapshotMessage) message;
-                        _worldSnapshotsPerTick.Add(snapshot);
+                        _lastSnapshot = snapshot;
+                        //_worldSnapshots.Add(snapshot);
                         break;
                     }
                 }

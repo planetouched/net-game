@@ -11,8 +11,8 @@ namespace Client.Worlds
     {
         private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
-        
-        public float serverTime { get; private set; }
+
+        public float currentServerTime { get; private set; }
 
         public IClientEntity FindEntity(uint objectId)
         {
@@ -21,7 +21,7 @@ namespace Client.Worlds
                 return entity;
             }
 
-            return null;        
+            return null;
         }
 
         public T FindEntity<T>(uint objectId, GameEntityType type) where T : class
@@ -34,15 +34,18 @@ namespace Client.Worlds
 
             return null;
         }
-        
+
         public void AddWorldSnapshot(WorldSnapshotWrapper snapshotWrapper)
         {
-            _snapshotsHistory.Add(snapshotWrapper);
-
-            if (_snapshotsHistory.Count > 1)
+            float snapshotDeltaTime = 0;
+            
+            if (_snapshotsHistory.Count > 0)
             {
-                serverTime = _snapshotsHistory[_snapshotsHistory.Count - 2].serverTime;
+                currentServerTime = _snapshotsHistory[_snapshotsHistory.Count - 1].serverTime;
+                snapshotDeltaTime = snapshotWrapper.serverTime - currentServerTime;
             }
+            
+            _snapshotsHistory.Add(snapshotWrapper);
 
             foreach (var clientEntity in _entities.Values)
             {
@@ -50,7 +53,7 @@ namespace Client.Worlds
             }
 
             FindEntity(ClientLocalPlayer.localObjectId)?.Use();
-            
+
             foreach (var pair in snapshotWrapper.snapshotEntities)
             {
                 uint objectId = pair.Key;
@@ -61,19 +64,19 @@ namespace Client.Worlds
                     //update entity
                     foundEntity.Use();
                     foundEntity.SetCurrentEntity(sharedEntity);
-                    foundEntity.SetServerDeltaTime(snapshotWrapper.serverDeltaTime);
+                    foundEntity.SetServerDeltaTime(snapshotDeltaTime);
                 }
                 else
                 {
                     //new entity
                     var clientEntity = ClientEntityFactory.Create(sharedEntity);
                     clientEntity.Use();
-                    clientEntity.SetServerDeltaTime(snapshotWrapper.serverDeltaTime);
+                    clientEntity.SetServerDeltaTime(snapshotDeltaTime);
                     clientEntity.Create();
                     _entities.Add(objectId, clientEntity);
                 }
             }
-            
+
             var entitiesCopy = new List<IClientEntity>(_entities.Values);
 
             for (int i = 0; i < entitiesCopy.Count; i++)
@@ -84,7 +87,7 @@ namespace Client.Worlds
                     entitiesCopy[i].Drop();
                 }
             }
-            
+
             if (_snapshotsHistory.Count > 256)
             {
                 _snapshotsHistory.RemoveAt(0);
@@ -94,8 +97,8 @@ namespace Client.Worlds
         //calls each frame
         public void Process()
         {
-            serverTime += Time.deltaTime;
-            
+            currentServerTime += Time.deltaTime;
+
             foreach (var entity in _entities.Values)
             {
                 entity.Process();
@@ -108,7 +111,7 @@ namespace Client.Worlds
             {
                 entity.Drop();
             }
-            
+
             _entities.Clear();
         }
     }

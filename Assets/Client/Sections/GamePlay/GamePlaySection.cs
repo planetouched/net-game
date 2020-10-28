@@ -15,6 +15,7 @@ namespace Client.Sections.GamePlay
         
         protected override void Init()
         {
+            Application.targetFrameRate = 144;
             Log.SetLogger(new UnityLogger());
             Log.Write("start");
         }

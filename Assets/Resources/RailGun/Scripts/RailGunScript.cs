@@ -2,32 +2,35 @@
 
 public class RailGunScript : MonoBehaviour
 {
-	ParticleSystem[] particleSystems;
+    ParticleSystem[] _particleSystems;
 
-	[SerializeField]
-	float speed = 1000f;
+    [SerializeField] float speed = 1000f;
 
-	[SerializeField]
-	float timeAlive = 1f;
+    [SerializeField] float timeAlive = 1f;
 
-	private void Awake() {
-		particleSystems = GetComponentsInChildren<ParticleSystem>();
-		Invoke(nameof(SelfDestruct), timeAlive);
-	}
+    private void Awake()
+    {
+        _particleSystems = GetComponentsInChildren<ParticleSystem>();
+        Invoke(nameof(SelfDestruct), timeAlive);
+    }
 
-	private void Update() {
-		transform.Translate(Vector3.forward * speed * Time.deltaTime);
-	}
+    private void Update()
+    {
+        transform.Translate(Vector3.forward * speed * Time.deltaTime);
+    }
 
-	private void SelfDestruct() {
-		DetatchParticles();
-		Destroy(gameObject);
-	}
+    private void SelfDestruct()
+    {
+        DetatchParticles();
+        Destroy(gameObject);
+    }
 
-	void DetatchParticles() {
-		foreach(ParticleSystem ps in particleSystems) {
-			ps.transform.parent = null;
-			ps.Stop();
-		}
-	}
+    private void DetatchParticles()
+    {
+        foreach (ParticleSystem ps in _particleSystems)
+        {
+            ps.transform.parent = null;
+            ps.Stop();
+        }
+    }
 }

@@ -1,4 +1,6 @@
 ﻿using Client.Entities._Base;
+using Client.Entities.Weapons;
+using Client.Entities.Weapons._Base;
 using Client.Utils;
 using Shared.Entities;
 using Shared.Entities._Base;
@@ -11,11 +13,11 @@ namespace Client.Entities
         private GameObject _go;
         private float _progress;
         
-        public ClientWeapon weapon { get; }
+        public ClientWeaponBase weapon { get; }
 
         public ClientPlayer()
         {
-            weapon = new ClientWeapon();
+            weapon = new ClientRailGun();
         }
         
         public override void SetCurrentEntity(ISharedEntity entity)
@@ -38,9 +40,17 @@ namespace Client.Entities
         {
             if (previous != null)
             {
-                _progress += Time.deltaTime;
+                _progress += Time.smoothDeltaTime;
                 var k = _progress / serverDeltaTime;
-                _go.transform.position = Vector3.Lerp(previous.position.ToUnity(), current.position.ToUnity(), k);
+                var prevPosition = previous.position.ToUnity();
+                var currentPosition = current.position.ToUnity();
+                var lerpPosition = Vector3.Lerp(prevPosition, currentPosition, k);
+                //_go.transform.position = lerpPosition; 
+                
+                //it looks better, but what about accuracy?
+                var speed = Vector3.Distance(prevPosition, currentPosition) / serverDeltaTime;
+                _go.transform.position = Vector3.MoveTowards(_go.transform.position, lerpPosition, speed * Time.smoothDeltaTime); 
+                
                 _go.transform.rotation = Quaternion.Lerp(Quaternion.Euler(previous.rotation.ToUnity()), Quaternion.Euler(current.rotation.ToUnity()), k);
             }
             else

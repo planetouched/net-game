@@ -10,7 +10,6 @@ namespace Shared.Messages.FromServer
     public class WorldSnapshotMessage : MessageBase
     {
         public Dictionary<ServerPlayer, List<ControlMessage>> messages { get; } = new Dictionary<ServerPlayer, List<ControlMessage>>();
-        public float deltaTime { get; private set; }
         public float serverTime { get; private set; }
         public uint snapshotNum { get; private set; }
         public byte[] worldData { get; private set; }
@@ -22,13 +21,11 @@ namespace Shared.Messages.FromServer
         public WorldSnapshotMessage(
             uint snapshotNum,
             NetDataWriter worldDataWriter,
-            float deltaTime,
             float serverTime
             
         ) : base(MessageIds.WorldSnapshot)
         {
             this.serverTime = serverTime;
-            this.deltaTime = deltaTime;
             this.snapshotNum = snapshotNum;
             var size = worldDataWriter.Length;
             worldData = new byte[size];
@@ -52,7 +49,6 @@ namespace Shared.Messages.FromServer
         {
             WriteHeader(netDataWriter);
             netDataWriter.Put(snapshotNum);
-            netDataWriter.Put(deltaTime);
             netDataWriter.Put(serverTime);
             netDataWriter.PutBytesWithLength(worldData);
 
@@ -63,7 +59,6 @@ namespace Shared.Messages.FromServer
         {
             ReadHeader(netDataReader);
             snapshotNum = netDataReader.GetUInt();
-            deltaTime = netDataReader.GetFloat();
             serverTime = netDataReader.GetFloat();
             worldData = netDataReader.GetBytesWithLength();
         }

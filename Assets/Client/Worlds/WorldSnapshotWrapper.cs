@@ -10,12 +10,12 @@ namespace Client.Worlds
     public class WorldSnapshotWrapper
     {
         public Dictionary<uint, ISharedEntity> snapshotEntities { get; } = new Dictionary<uint, ISharedEntity>(256);
-        public float serverDeltaTime { get; }
+        //public float serverDeltaTime { get; }
         public float serverTime { get; }
 
         public WorldSnapshotWrapper(WorldSnapshotMessage message)
         {
-            serverDeltaTime = message.deltaTime;
+            //serverDeltaTime = message.deltaTime;
             serverTime = message.serverTime;
             
             var netDataReader = new NetDataReader(message.worldData);
