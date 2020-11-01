@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Numerics;
-using Client.Utils;
 
 namespace Shared.Utils
 {
@@ -36,29 +35,12 @@ namespace Shared.Utils
 
         public static bool IntersectRaySphere(Vector3 point, Vector3 euler, Vector3 center, float radius)
         {
-            var quat = UnityEngine.Quaternion.Euler(euler.ToUnity());
-            var tmp = (quat * UnityEngine.Vector3.forward).normalized;
-            var dir = new Vector3(tmp.x, tmp.y, tmp.z);
+            var quaternion = Quaternion.CreateFromYawPitchRoll(ToRadians(euler.Y), ToRadians(euler.X), ToRadians(euler.Z));
+            var direction = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, quaternion));
             
-            Vector3 pointIntersect = point + dir * Vector3.Dot(center - point, dir);
+            var pointIntersect = point + direction * Vector3.Dot(center - point, direction);
             float intersectDistance = Vector3.Distance(pointIntersect, center);
             return intersectDistance < radius;
-        }
-
-        public static bool RaySphereIntersection(Vector3 rayPos, Vector3 rayDir, Vector3 spherePos, float radius)
-        {
-            var l = spherePos - rayPos;
-            var tc = Vector3.Dot(l, rayDir);
-
-            if (tc < 0) return false;
-
-            var d2 = tc * tc - Vector3.Dot(l, l);
-
-            float radius2 = radius * radius;
-
-            if (d2 > radius2) return false;
-
-            return true;
         }
     }
 }
