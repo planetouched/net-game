@@ -16,7 +16,21 @@ namespace Shared.Entities
         {
             type = GameEntityType.Weapon;
         }
-        
+
+        public override ISharedEntity Clone()
+        {
+            var clone = new SharedWeapon
+            {
+                shot = shot, 
+                position = position, 
+                rotation = rotation, 
+                timeToReady = timeToReady,
+                objectId = objectId
+            };
+
+            return clone;
+        }
+
         public override NetDataWriter Serialize(NetDataWriter netDataWriter)
         {
             WriteHeader(netDataWriter);

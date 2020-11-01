@@ -10,5 +10,6 @@ namespace Server.Entities._Base
         IServerWorld world { get; set; }
         void Remove();
         void Process(float deltaTime);
+       
     }
 }

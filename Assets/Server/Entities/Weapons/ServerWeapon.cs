@@ -1,5 +1,4 @@
-﻿using System.Numerics;
-using Server.Entities._Base;
+﻿using Server.Entities._Base;
 using Shared;
 using Shared.Entities;
 
@@ -12,6 +11,8 @@ namespace Server.Entities.Weapons
         public bool shot => _sharedWeapon.shot;
 
         public bool isInstant => _sharedWeapon.isInstant;
+        
+        public bool isLocked { get; private set; }
 
         public ServerWeapon(SharedWeapon sharedWeapon) : base(sharedWeapon)
         {
@@ -21,6 +22,12 @@ namespace Server.Entities.Weapons
         public void Prepare()
         {
             _sharedWeapon.shot = false;
+            isLocked = false;
+        }
+
+        public void Lock()
+        {
+            isLocked = true;
         }
         
         public void Use(bool value)
@@ -32,11 +39,12 @@ namespace Server.Entities.Weapons
             }
         }
 
+        /*
         public void SetPositionAndRotation(Vector3 position, Vector3 rotation)
         {
             sharedEntity.position = position;
             sharedEntity.rotation = rotation;
-        }
+        }*/
         
         public override void Process(float deltaTime)
         {

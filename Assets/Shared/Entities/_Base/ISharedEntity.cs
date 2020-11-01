@@ -10,5 +10,6 @@ namespace Shared.Entities._Base
         uint objectId { get; set; }
         Vector3 position { get; set; }
         Vector3 rotation { get; set; }
+        ISharedEntity Clone();
     }
 }

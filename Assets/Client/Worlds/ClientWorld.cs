@@ -64,14 +64,14 @@ namespace Client.Worlds
                     //update entity
                     foundEntity.Use();
                     foundEntity.SetCurrentEntity(sharedEntity);
-                    foundEntity.SetServerDeltaTime(snapshotDeltaTime);
+                    foundEntity.SetSnapshotDeltaTime(snapshotDeltaTime);
                 }
                 else
                 {
                     //new entity
                     var clientEntity = ClientEntityFactory.Create(sharedEntity);
                     clientEntity.Use();
-                    clientEntity.SetServerDeltaTime(snapshotDeltaTime);
+                    clientEntity.SetSnapshotDeltaTime(snapshotDeltaTime);
                     clientEntity.Create();
                     _entities.Add(objectId, clientEntity);
                 }

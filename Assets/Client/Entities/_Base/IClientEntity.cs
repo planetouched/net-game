@@ -13,7 +13,7 @@ namespace Client.Entities._Base
         void UnUse();
         void Use();
         void SetCurrentEntity(ISharedEntity entity);
-        void SetServerDeltaTime(float sDeltaTime);
+        void SetSnapshotDeltaTime(float sDeltaTime);
         void Process();
     }
 }

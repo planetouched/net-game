@@ -31,7 +31,7 @@ namespace Client.Entities._Base
             current = entity;
         }
 
-        public void SetServerDeltaTime(float sDeltaTime)
+        public void SetSnapshotDeltaTime(float sDeltaTime)
         {
             serverDeltaTime = sDeltaTime;
         }

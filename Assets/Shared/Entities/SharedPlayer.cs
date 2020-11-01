@@ -15,7 +15,22 @@ namespace Shared.Entities
         {
             type = GameEntityType.Player;
         }
-        
+
+        public override ISharedEntity Clone()
+        {
+            var clone = new SharedPlayer
+            {
+                isAlive = isAlive,
+                position = position,
+                rotation = rotation,
+                objectId = objectId,
+                lastMessageNum = lastMessageNum,
+                weapon = (SharedWeapon) weapon.Clone()
+            };
+            
+            return clone;
+        }
+
         public override NetDataWriter Serialize(NetDataWriter netDataWriter)
         {
             WriteHeader(netDataWriter);

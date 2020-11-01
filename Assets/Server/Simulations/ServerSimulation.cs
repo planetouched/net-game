@@ -28,15 +28,11 @@ namespace Server.Simulations
 
         private volatile bool _update;
 
-        private readonly List<ControlMessage> _messagesPerTick = new List<ControlMessage>();
-        private readonly List<WorldSnapshotMessage> _snapshots = new List<WorldSnapshotMessage>();
+        private readonly Queue<ControlMessage> _messagesPerTick = new Queue<ControlMessage>();
 
         private readonly int _gameId;
         private readonly ServerNetListener _serverNetListener;
-        private NetDataWriter _worldDataWriter;
-
-        private DateTime _lastTickTime;
-        private float _serverTime;
+        private readonly NetDataWriter _worldDataWriter;
 
         private readonly Dictionary<NetPeer, ServerPlayer> _players = new Dictionary<NetPeer, ServerPlayer>();
 
@@ -101,13 +97,9 @@ namespace Server.Simulations
                 }
                 else
                 {
-                    if (!_world.Exists(message.objectId)) return;
-                    
                     if (message.messageId == MessageIds.PlayerControl)
                     {
-                        var controlMessage = (ControlMessage) message;
-                        player.AddControlMessage(controlMessage);
-                        _messagesPerTick.Add(controlMessage);
+                        _messagesPerTick.Enqueue((ControlMessage) message);
                     }
                 }
             }
@@ -115,42 +107,31 @@ namespace Server.Simulations
 
         public void ProcessSimulation()
         {
-            var currentTime = DateTime.UtcNow;
-            var deltaTime = (float)(currentTime - _lastTickTime).TotalSeconds;
-            _serverTime += deltaTime; 
-            _lastTickTime = currentTime;
-            
-            _world.Process(deltaTime);
-
             try
             {
-                _worldDataWriter.Reset();
-                _worldDataWriter = _world.Serialize(_worldDataWriter);
-                var snapshot = new WorldSnapshotMessage(++_snapshotNum, _worldDataWriter, _serverTime);
-                snapshot.SetMessageNum(++_messageNum).SetGameId(_gameId);
+                var startFrameSnapshot = _world.CreateSnapshot(_world.time, true);
 
-                for (int i = 0; i < _messagesPerTick.Count; i++)
+                while (_messagesPerTick.Count > 0)
                 {
-                    var message = _messagesPerTick[i];
+                    var message = _messagesPerTick.Dequeue();
                     var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
                     
                     if (player != null)
                     {
-                        snapshot.AddControlMessage(player, message);
+                        player.AddControlMessage(message);
+                        startFrameSnapshot.AddControlMessage(message.objectId, message);
                     }
                 }
                 
-                _messagesPerTick.Clear();
+                _world.Process();
+                
+                var endFrameSnapshot = _world.CreateSnapshot(_world.time, false);
 
-                _snapshots.Add(snapshot);
+                _worldDataWriter.Reset();
+                var snapshotMessage = new WorldSnapshotMessage(++_snapshotNum, endFrameSnapshot.Serialize(_worldDataWriter), _world.time);
+                snapshotMessage.SetMessageNum(++_messageNum).SetGameId(_gameId);
 
-                if (_snapshots.Count > 1024)
-                {
-                    _snapshots.RemoveAt(0);
-                }
-
-                var snapshotDataWriter = snapshot.Serialize(new NetDataWriter());
-                _serverNetListener.netManager.SendToAll(snapshotDataWriter, DeliveryMethod.Unreliable);
+                _serverNetListener.netManager.SendToAll(snapshotMessage.Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
             }
             catch (Exception)
             {
@@ -187,8 +168,7 @@ namespace Server.Simulations
             int tickDelay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
             
             _update = true;
-            _lastTickTime = DateTime.UtcNow;
-            _serverTime = 0;
+            _world.SetupTime();
 
             while (_update)
             {

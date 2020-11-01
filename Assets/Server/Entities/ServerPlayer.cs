@@ -43,10 +43,10 @@ namespace Server.Entities
 
                 weapon.Use(message.mouseButton0);
 
-                if (weapon.shot)
+                if (weapon.shot && !weapon.isLocked)
                 {
-                    weapon.SetPositionAndRotation(position, rotation);
                     world.Shot(this, message);
+                    weapon.Lock();
                 }
             }
             
