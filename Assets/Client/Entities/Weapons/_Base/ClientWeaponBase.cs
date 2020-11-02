@@ -1,4 +1,5 @@
 ﻿using Client.Entities._Base;
+using Client.Worlds;
 using Shared.Entities;
 using Vector3 = System.Numerics.Vector3;
 
@@ -9,16 +10,20 @@ namespace Client.Entities.Weapons._Base
         protected Vector3 position;
         protected Vector3 rotation;
 
-        private SharedWeapon _lastShootedWeapon;
+        private SharedWeapon _lastWeapon;
+        
+        protected ClientWeaponBase(ClientWorld clientWorld) : base(clientWorld)
+        {
+        }
         
         public override void Process()
         {
             var weapon = (SharedWeapon) current;
             
-            if (weapon.shot && _lastShootedWeapon != weapon)
+            if (weapon.shot && _lastWeapon != weapon)
             {
-                _lastShootedWeapon = weapon;
-                Shot();
+                _lastWeapon = weapon;
+                Shot(weapon.hitTo);
             }
         }
         
@@ -28,6 +33,6 @@ namespace Client.Entities.Weapons._Base
             rotation = rot;
         }
 
-        protected abstract void Shot();
+        protected abstract void Shot(uint targetId);
     }
 }

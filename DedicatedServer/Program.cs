@@ -8,7 +8,7 @@ namespace DedicatedServer
     {
         static void Main(string[] args)
         {
-            Logger.SetLogger(new ConsoleLogger());
+            Log.SetLogger(new ConsoleLogger());
 
             var server = new ServerSimulation(12345, 1);
             server.StartSimulation();
@@ -22,7 +22,7 @@ namespace DedicatedServer
 
                 if (key.Key == ConsoleKey.G)
                 {
-                    Logger.Log("GC Collect");
+                    Log.Write("GC Collect");
                     GC.Collect();
                 }
             }

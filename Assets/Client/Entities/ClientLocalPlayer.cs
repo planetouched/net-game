@@ -3,6 +3,7 @@ using Client.Entities._Base;
 using Client.Entities.Weapons;
 using Client.Entities.Weapons._Base;
 using Client.Utils;
+using Client.Worlds;
 using Shared.Entities;
 using Shared.Entities._Base;
 using Shared.Messages.FromClient;
@@ -25,9 +26,9 @@ namespace Client.Entities
         private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
         private ControlMessage _currentControlMessage;
 
-        public ClientLocalPlayer()
+        public ClientLocalPlayer(ClientWorld clientWorld) : base(clientWorld)
         {
-            weapon = new ClientLocalRailGun();
+            weapon = new ClientLocalRailGun(clientWorld);
         }
         
         public override void SetCurrentEntity(ISharedEntity entity)

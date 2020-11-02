@@ -1,6 +1,7 @@
 ﻿using System;
 using Client.Entities;
 using Client.Entities._Base;
+using Client.Worlds;
 using Shared.Entities._Base;
 using Shared.Enums;
 
@@ -8,20 +9,20 @@ namespace Client.Factories
 {
     public static class ClientEntityFactory
     {
-        public static IClientEntity Create(ISharedEntity sharedEntity)
+        public static ClientEntityBase Create(ISharedEntity sharedEntity, ClientWorld clientWorld)
         {
-            IClientEntity entity = null;
+            ClientEntityBase entity = null;
             
             switch (sharedEntity.type)
             {
                 case GameEntityType.Player:
                     if (sharedEntity.objectId == ClientLocalPlayer.localObjectId)
                     {
-                        entity = new ClientLocalPlayer();
+                        entity = new ClientLocalPlayer(clientWorld);
                     }
                     else
                     {
-                        entity = new ClientPlayer();
+                        entity = new ClientPlayer(clientWorld);
                     }
                     
                     break;

@@ -46,6 +46,7 @@ namespace Client
         private void Update()
         {
             SimulatePhysics();
+            Timer.Process(Loops.TIMER, Time.deltaTime);
             EngineLoopManager.Execute(Loops.UPDATE);
         }
 

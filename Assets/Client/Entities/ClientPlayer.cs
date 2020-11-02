@@ -2,6 +2,7 @@
 using Client.Entities.Weapons;
 using Client.Entities.Weapons._Base;
 using Client.Utils;
+using Client.Worlds;
 using Shared.Entities;
 using Shared.Entities._Base;
 using UnityEngine;
@@ -15,9 +16,9 @@ namespace Client.Entities
         
         public ClientWeaponBase weapon { get; }
 
-        public ClientPlayer()
+        public ClientPlayer(ClientWorld clientWorld) : base(clientWorld)
         {
-            weapon = new ClientRailGun();
+            weapon = new ClientRailGun(clientWorld);
         }
         
         public override void SetCurrentEntity(ISharedEntity entity)

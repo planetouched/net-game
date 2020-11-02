@@ -22,6 +22,7 @@ namespace Server.Entities.Weapons
         public void Prepare()
         {
             _sharedWeapon.shot = false;
+            _sharedWeapon.hitTo = 0;
             isLocked = false;
         }
 
@@ -39,12 +40,10 @@ namespace Server.Entities.Weapons
             }
         }
 
-        /*
-        public void SetPositionAndRotation(Vector3 position, Vector3 rotation)
+        public void HitTo(uint objectId)
         {
-            sharedEntity.position = position;
-            sharedEntity.rotation = rotation;
-        }*/
+            _sharedWeapon.hitTo = objectId;
+        }
         
         public override void Process(float deltaTime)
         {

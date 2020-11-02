@@ -11,6 +11,7 @@ namespace Shared.Entities
         public bool isReady => timeToReady <= 0;
         public float timeToReady { get; set; }
         public bool shot { get; set; }
+        public uint hitTo { get; set; }
 
         public SharedWeapon()
         {
@@ -25,7 +26,8 @@ namespace Shared.Entities
                 position = position, 
                 rotation = rotation, 
                 timeToReady = timeToReady,
-                objectId = objectId
+                objectId = objectId,
+                hitTo = hitTo
             };
 
             return clone;
@@ -36,6 +38,7 @@ namespace Shared.Entities
             WriteHeader(netDataWriter);
             netDataWriter.Put(timeToReady);
             netDataWriter.Put(shot);
+            netDataWriter.Put(hitTo);
             
             return netDataWriter;        
         }
@@ -45,6 +48,7 @@ namespace Shared.Entities
             ReadHeader(netDataReader);
             timeToReady = netDataReader.GetFloat();
             shot = netDataReader.GetBool();
+            hitTo = netDataReader.GetUInt();
         }
     }
 }

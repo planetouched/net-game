@@ -45,8 +45,9 @@ namespace Server.Entities
 
                 if (weapon.shot && !weapon.isLocked)
                 {
-                    world.Shot(this, message);
+                    var target = world.Shot(this, message.serverTime);
                     weapon.Lock();
+                    weapon.HitTo(target);
                 }
             }
             

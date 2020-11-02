@@ -1,4 +1,5 @@
 ﻿using Client.Entities._Base;
+using Client.Worlds;
 using Shared;
 using Shared.Entities;
 using UnityEngine;
@@ -13,6 +14,10 @@ namespace Client.Entities.Weapons._Base
         protected Vector3 rotation;
         private float _timeToReady;
         
+        protected ClientLocalWeaponBase(ClientWorld clientWorld) : base(clientWorld)
+        {
+        }
+        
         public override void Process()
         {
             var weapon = (SharedWeapon) current;
@@ -24,6 +29,7 @@ namespace Client.Entities.Weapons._Base
                 Shot();
             }
 
+            //client fake reload
             if (_timeToReady > 0)
                 _timeToReady -= Time.deltaTime;
         }

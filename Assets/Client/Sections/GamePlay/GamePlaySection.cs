@@ -20,6 +20,21 @@ namespace Client.Sections.GamePlay
             Log.Write("start");
         }
 
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.H))
+            {
+                Cursor.visible = !Cursor.visible;
+                
+                if (!Cursor.visible)
+                    Cursor.lockState = CursorLockMode.Locked;
+                else
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                }
+            }
+        }
+        
         private void OnGUI()
         {
             if (GUI.Button(new Rect(0, 0, 100, 100), "Run server"))

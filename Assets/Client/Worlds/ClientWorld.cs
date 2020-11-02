@@ -9,12 +9,12 @@ namespace Client.Worlds
 {
     public class ClientWorld
     {
-        private readonly Dictionary<uint, IClientEntity> _entities = new Dictionary<uint, IClientEntity>();
+        private readonly Dictionary<uint, ClientEntityBase> _entities = new Dictionary<uint, ClientEntityBase>();
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
 
         public float currentServerTime { get; private set; }
 
-        public IClientEntity FindEntity(uint objectId)
+        public ClientEntityBase FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
             {
@@ -24,7 +24,7 @@ namespace Client.Worlds
             return null;
         }
 
-        public T FindEntity<T>(uint objectId, GameEntityType type) where T : class
+        public T FindEntity<T>(uint objectId, GameEntityType type) where T : ClientEntityBase
         {
             var entity = FindEntity(objectId);
             if (entity != null && entity.type == type)
@@ -38,13 +38,13 @@ namespace Client.Worlds
         public void AddWorldSnapshot(WorldSnapshotWrapper snapshotWrapper)
         {
             float snapshotDeltaTime = 0;
-            
+
             if (_snapshotsHistory.Count > 0)
             {
                 currentServerTime = _snapshotsHistory[_snapshotsHistory.Count - 1].serverTime;
                 snapshotDeltaTime = snapshotWrapper.serverTime - currentServerTime;
             }
-            
+
             _snapshotsHistory.Add(snapshotWrapper);
 
             foreach (var clientEntity in _entities.Values)
@@ -69,7 +69,7 @@ namespace Client.Worlds
                 else
                 {
                     //new entity
-                    var clientEntity = ClientEntityFactory.Create(sharedEntity);
+                    var clientEntity = ClientEntityFactory.Create(sharedEntity, this);
                     clientEntity.Use();
                     clientEntity.SetSnapshotDeltaTime(snapshotDeltaTime);
                     clientEntity.Create();
@@ -77,7 +77,7 @@ namespace Client.Worlds
                 }
             }
 
-            var entitiesCopy = new List<IClientEntity>(_entities.Values);
+            var entitiesCopy = new List<ClientEntityBase>(_entities.Values);
 
             for (int i = 0; i < entitiesCopy.Count; i++)
             {

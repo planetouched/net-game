@@ -4,19 +4,15 @@ public class RailGunScript : MonoBehaviour
 {
     ParticleSystem[] _particleSystems;
 
-    [SerializeField] float speed = 2000f;
-
-    [SerializeField] float timeAlive = 1f;
-
     private void Awake()
     {
         _particleSystems = GetComponentsInChildren<ParticleSystem>();
-        Invoke(nameof(SelfDestruct), timeAlive);
+        Invoke(nameof(SelfDestruct), 1);
     }
 
     private void Update()
     {
-        transform.Translate(Vector3.forward * speed * Time.deltaTime);
+        transform.Translate(Vector3.forward * 2000 * Time.deltaTime);
     }
 
     private void SelfDestruct()

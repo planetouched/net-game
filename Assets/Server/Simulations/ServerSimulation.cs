@@ -6,7 +6,6 @@ using LiteNetLib.Utils;
 using Server.Entities;
 using Server.Network;
 using Server.Worlds;
-using Server.Worlds._Base;
 using Shared.Entities;
 using Shared.Enums;
 using Shared.Loggers;
@@ -20,7 +19,7 @@ namespace Server.Simulations
 {
     public class ServerSimulation : ISimulation
     {
-        private readonly IServerWorld _world;
+        private readonly ServerWorld _world;
 
         private uint _snapshotNum;
         private uint _messageNum;
@@ -109,16 +108,19 @@ namespace Server.Simulations
         {
             try
             {
+                var preprocessSnapshot = (WorldSnapshot)_world.CreateSnapshot(_world.time, true);
+                
                 while (_messagesPerTick.Count > 0)
                 {
                     var message = _messagesPerTick.Dequeue();
                     var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
                     player?.AddControlMessage(message);
+                    preprocessSnapshot.AddControlMessage(message.objectId, message);
                 }
                 
                 _world.Process();
                 
-                var snapshot = _world.CreateSnapshot(_world.time, true);
+                var snapshot = _world.CreateSnapshot(_world.time, false);
 
                 _worldDataWriter.Reset();
                 var snapshotMessage = new WorldSnapshotMessage(++_snapshotNum, snapshot.Serialize(_worldDataWriter), _world.time);

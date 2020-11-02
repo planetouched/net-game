@@ -2,22 +2,22 @@
 using System.Collections.Generic;
 using Server.Entities;
 using Server.Entities._Base;
-using Server.Worlds._Base;
+using Shared.Entities;
 using Shared.Enums;
 using Shared.Loggers;
-using Shared.Messages.FromClient;
 using Shared.Utils;
 
 namespace Server.Worlds
 {
-    public class ServerWorld : IServerWorld
+    public class ServerWorld
     {
         private static uint _globalObjectId;
 
-        private readonly Dictionary<uint, IServerEntity> _entities = new Dictionary<uint, IServerEntity>(8192);
-        private readonly Dictionary<uint, IServerEntity> _addEntities = new Dictionary<uint, IServerEntity>(1024);
+        private readonly Dictionary<uint, ServerEntityBase> _entities = new Dictionary<uint, ServerEntityBase>(8192);
+        private readonly Dictionary<uint, ServerEntityBase> _addEntities = new Dictionary<uint, ServerEntityBase>(1024);
         private readonly List<uint> _removeEntities = new List<uint>();
         
+        private readonly List<WorldSnapshot> _preprocessSnapshots = new List<WorldSnapshot>();
         private readonly List<WorldSnapshot> _snapshots = new List<WorldSnapshot>();
 
         public float time { get; private set; }
@@ -28,7 +28,7 @@ namespace Server.Worlds
             _lastTickTime = DateTime.UtcNow; 
         }
         
-        public uint AddEntity(uint objectId, IServerEntity entity)
+        public uint AddEntity(uint objectId, ServerEntityBase entity)
         {
             _addEntities.Add(objectId, entity);
             entity.world = this;
@@ -47,7 +47,7 @@ namespace Server.Worlds
             return _entities.ContainsKey(objectId);
         }
         
-        public IServerEntity FindEntity(uint objectId)
+        public ServerEntityBase FindEntity(uint objectId)
         {
             if (_entities.TryGetValue(objectId, out var entity))
             {
@@ -72,7 +72,7 @@ namespace Server.Worlds
             return null;
         }
 
-        public T FindEntity<T>(uint objectId, GameEntityType type) where T : class
+        public T FindEntity<T>(uint objectId, GameEntityType type) where T : ServerEntityBase
         {
             var entity = FindEntity(objectId);
             if (entity != null && entity.sharedEntity.type == type)
@@ -142,33 +142,72 @@ namespace Server.Worlds
             return ++_globalObjectId;
         }
 
-        private IWorldSnapshot FindSnapshotByTime(float targetTime)
+        private WorldSnapshot FindPreprocessSnapshotByTime(float targetTime)
         {
-            for (int i = 0; i < _snapshots.Count; i++)
+            for (int i = _preprocessSnapshots.Count - 1; i >= 0; i--)
             {
-                IWorldSnapshot next = null;
-
-                if (i + 1 < _snapshots.Count)
+                if (_preprocessSnapshots[i].serverTime <= targetTime)
                 {
-                    next = _snapshots[i + 1];
-                }
-                
-                if (_snapshots[i].serverTime >= targetTime && (next == null || next.serverTime < targetTime))
-                {
-                    return _snapshots[i];
+                    return _preprocessSnapshots[i];
                 }
             }
 
             return null;
         }
+
+        private WorldSnapshot RewindWorld(float targetTime)
+        {
+            var snapshot = FindPreprocessSnapshotByTime(targetTime);
+
+            if (snapshot == null) return null;
+            
+            var accuratelySnapshot = new WorldSnapshot(snapshot.serverTime);
+            
+            foreach (var pair in snapshot.entities)
+            {
+                var objectId = pair.Key;
+                var entity = pair.Value;
+
+                if (snapshot.messages.TryGetValue(objectId, out var messages))
+                {
+                    var currentTime = accuratelySnapshot.serverTime;
+                    var player = entity.Clone();
+                    accuratelySnapshot.AddEntity(objectId, player);
+                    
+                    for (int i = 0; i < messages.Count; i++)
+                    {
+                        if (currentTime >= targetTime)
+                        {
+                            break;
+                        }
+                        
+                        var controlMessage = messages[i];
+
+                        var position = player.position;
+                        var rotation = player.rotation;
+                        SharedPlayerBehaviour.Movement(ref position, ref rotation, controlMessage);
+                        player.position = position;
+                        player.rotation = rotation;
+                            
+                        currentTime += controlMessage.deltaTime;
+                    }
+                }
+                else
+                {
+                    accuratelySnapshot.AddEntity(objectId, entity);
+                }
+            }
+
+            return accuratelySnapshot;
+        }
         
-        public void Shot(IServerEntity shooter, ControlMessage message)
+        public uint Shot(ServerEntityBase shooter, float shooterTime)
         {
             var shooterPlayer = (ServerPlayer) shooter;
             
             if (shooterPlayer.weapon.isInstant)
             {
-                var snapshot = FindSnapshotByTime(message.serverTime);
+                var snapshot = RewindWorld(shooterTime);
                 
                 if (snapshot != null)
                 {
@@ -182,13 +221,16 @@ namespace Server.Worlds
                         if (hit)
                         {
                             Log.Write("Hit to: " + checkEntity.Key);
+                            return checkEntity.Key;
                         }
                     }
                 }
             }
+
+            return 0;
         }
 
-        public IWorldSnapshot CreateSnapshot(float serverTime, bool keep)
+        public WorldSnapshot CreateSnapshot(float serverTime, bool preprocessSnapshot)
         {
             var snapshot  = new WorldSnapshot(serverTime);
             
@@ -197,12 +239,22 @@ namespace Server.Worlds
                 snapshot.AddEntity(pair.Key, pair.Value.sharedEntity.Clone());
             }
 
-            if (keep)
+            if (preprocessSnapshot)
+            {
+                _preprocessSnapshots.Add(snapshot);
+                
+                //save only 3 last seconds
+                if (_preprocessSnapshots.Count > ServerSettings.TicksCount * 3 + 1)
+                {
+                    _preprocessSnapshots.RemoveAt(0);
+                }
+            }
+            else
             {
                 _snapshots.Add(snapshot);
                 
-                //save only 2 last seconds
-                if (_snapshots.Count > ServerSettings.TicksCount * 2 + 1)
+                //save only 3 last seconds
+                if (_snapshots.Count > ServerSettings.TicksCount * 3 + 1)
                 {
                     _snapshots.RemoveAt(0);
                 }

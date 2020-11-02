@@ -1,20 +1,27 @@
 ﻿using Basement.OEPFramework.UnityEngine._Base;
+using Client.Worlds;
 using Shared.Entities._Base;
 using Shared.Enums;
 
 namespace Client.Entities._Base
 {
-    public abstract class ClientEntityBase : DroppableItemBase, IClientEntity
+    public abstract class ClientEntityBase : DroppableItemBase
     {
         public GameEntityType type => current.type;
         public uint objectId => current.objectId;
         
         public bool isUsed { get; private set; }
         
-        protected ISharedEntity current;
-        protected ISharedEntity previous;
+        public ISharedEntity current { get; private set; }
+        public ISharedEntity previous { get; private set; }
         protected float serverDeltaTime;
+        protected readonly ClientWorld clientWorld;
 
+        protected ClientEntityBase(ClientWorld clientWorld)
+        {
+            this.clientWorld = clientWorld;
+        }
+        
         public void UnUse()
         {
             isUsed = false;
