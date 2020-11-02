@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Server.Entities;
 using Server.Entities._Base;
 using Server.Worlds._Base;
-using Shared.Entities;
 using Shared.Enums;
 using Shared.Loggers;
 using Shared.Messages.FromClient;
@@ -143,65 +142,24 @@ namespace Server.Worlds
             return ++_globalObjectId;
         }
 
-        private IWorldSnapshot FindSnapshotByTime(float time)
+        private IWorldSnapshot FindSnapshotByTime(float targetTime)
         {
-            for (int i = _snapshots.Count - 1; i >= 0; i--)
+            for (int i = 0; i < _snapshots.Count; i++)
             {
-                var snapshot = _snapshots[i];
-                if (snapshot.serverTime <= time)
+                IWorldSnapshot next = null;
+
+                if (i + 1 < _snapshots.Count)
                 {
-                    return snapshot;
+                    next = _snapshots[i + 1];
+                }
+                
+                if (_snapshots[i].serverTime >= targetTime && (next == null || next.serverTime < targetTime))
+                {
+                    return _snapshots[i];
                 }
             }
 
             return null;
-        }
-
-        private IWorldSnapshot RewindWorld(float targetTime)
-        {
-            var snapshot = FindSnapshotByTime(targetTime);
-            
-            if (snapshot == null) return null;
-            
-            var copySnapshot = new WorldSnapshot(snapshot.serverTime);
-            
-            foreach (var pair in snapshot.entities)
-            {
-                var objectId = pair.Key;
-                var entity = pair.Value;
-
-                if (snapshot.messages.TryGetValue(objectId, out var messages))
-                {
-                    var currentTime = snapshot.serverTime;
-                    
-                    var player = entity.Clone();
-                    copySnapshot.AddEntity(objectId, player);
-                    
-                    for (int i = 0; i < messages.Count; i++)
-                    {
-                        if (currentTime >= targetTime)
-                        {
-                            break;
-                        }
-                        
-                        var controlMessage = messages[i];
-
-                        var position = player.position;
-                        var rotation = player.rotation;
-                        SharedPlayerBehaviour.Movement(ref position, ref rotation, controlMessage);
-                        player.position = position;
-                        player.rotation = rotation;
-                            
-                        currentTime += controlMessage.deltaTime;
-                    }
-                }
-                else
-                {
-                    copySnapshot.AddEntity(objectId, entity);
-                }
-            }
-
-            return copySnapshot;
         }
         
         public void Shot(IServerEntity shooter, ControlMessage message)
@@ -210,7 +168,7 @@ namespace Server.Worlds
             
             if (shooterPlayer.weapon.isInstant)
             {
-                var snapshot = RewindWorld(message.serverTime);
+                var snapshot = FindSnapshotByTime(message.serverTime);
                 
                 if (snapshot != null)
                 {
@@ -219,7 +177,7 @@ namespace Server.Worlds
                         //skip self
                         if (checkEntity.Key == shooterPlayer.sharedEntity.objectId) continue;
 
-                        var hit = MathUtil.IntersectRaySphere(shooterPlayer.sharedEntity.position, shooterPlayer.sharedEntity.rotation, checkEntity.Value.position, 1f);
+                        var hit = MathUtil.IntersectRaySphere(shooterPlayer.sharedEntity.position, shooterPlayer.sharedEntity.rotation, checkEntity.Value.position, 0.5f);
                         
                         if (hit)
                         {

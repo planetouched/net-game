@@ -109,26 +109,19 @@ namespace Server.Simulations
         {
             try
             {
-                var startFrameSnapshot = _world.CreateSnapshot(_world.time, true);
-
                 while (_messagesPerTick.Count > 0)
                 {
                     var message = _messagesPerTick.Dequeue();
                     var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
-                    
-                    if (player != null)
-                    {
-                        player.AddControlMessage(message);
-                        startFrameSnapshot.AddControlMessage(message.objectId, message);
-                    }
+                    player?.AddControlMessage(message);
                 }
                 
                 _world.Process();
                 
-                var endFrameSnapshot = _world.CreateSnapshot(_world.time, false);
+                var snapshot = _world.CreateSnapshot(_world.time, true);
 
                 _worldDataWriter.Reset();
-                var snapshotMessage = new WorldSnapshotMessage(++_snapshotNum, endFrameSnapshot.Serialize(_worldDataWriter), _world.time);
+                var snapshotMessage = new WorldSnapshotMessage(++_snapshotNum, snapshot.Serialize(_worldDataWriter), _world.time);
                 snapshotMessage.SetMessageNum(++_messageNum).SetGameId(_gameId);
 
                 _serverNetListener.netManager.SendToAll(snapshotMessage.Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
