@@ -200,12 +200,12 @@ namespace Server.Worlds
             if (keep)
             {
                 _snapshots.Add(snapshot);
-            }
-
-            //save only 2 last seconds
-            if (_snapshots.Count > ServerSettings.TicksCount * 2 + 1)
-            {
-                _snapshots.RemoveAt(0);
+                
+                //save only 2 last seconds
+                if (_snapshots.Count > ServerSettings.TicksCount * 2 + 1)
+                {
+                    _snapshots.RemoveAt(0);
+                }
             }
 
             return snapshot;

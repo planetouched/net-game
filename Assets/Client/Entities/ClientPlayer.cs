@@ -31,7 +31,7 @@ namespace Client.Entities
 
         public override void Create()
         {
-            _go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
             _go.transform.position = current.position.ToUnity();
         }
@@ -47,7 +47,7 @@ namespace Client.Entities
                 var lerpPosition = Vector3.Lerp(prevPosition, currentPosition, k);
                 //_go.transform.position = lerpPosition; 
                 
-                //it looks better, but what about accuracy?
+                //it looks better, but what is about accuracy?
                 var speed = Vector3.Distance(prevPosition, currentPosition) / serverDeltaTime;
                 _go.transform.position = Vector3.MoveTowards(_go.transform.position, lerpPosition, speed * Time.smoothDeltaTime); 
                 

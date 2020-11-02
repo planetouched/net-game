@@ -4,7 +4,7 @@ public class RailGunScript : MonoBehaviour
 {
     ParticleSystem[] _particleSystems;
 
-    [SerializeField] float speed = 1000f;
+    [SerializeField] float speed = 2000f;
 
     [SerializeField] float timeAlive = 1f;
 
