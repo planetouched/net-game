@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Sockets;
 using LiteNetLib;
 using LiteNetLib.Layers;
-using LiteNetLib.Utils;
 using Shared.Factories;
 using Shared.Loggers;
 using Shared.Messages._Base;
@@ -16,7 +15,7 @@ namespace Server.Network
 
         private readonly int _port;
 
-        public event Action<NetPeer, IMessage> onIncomingMessage;
+        public event Action<NetPeer, MessageBase> onIncomingMessage;
         public event Action<NetPeer> onClientDisconnected;
         public event Action<NetPeer> onClientConnected;
 
@@ -34,8 +33,6 @@ namespace Server.Network
 
         public void Start()
         {
-            //var ip4 = IPAddress.Any.ToString();
-            //var ip6 = IPAddress.IPv6Any.ToString();
             isStarted = netManager.Start(_port);
         }
 
@@ -53,6 +50,7 @@ namespace Server.Network
         public void OnPeerConnected(NetPeer peer)
         {
             Log.Write("[SERVER] We have new peer " + peer.EndPoint);
+            Log.Write("Peer -> MTU: " + peer.Mtu);
             onClientConnected?.Invoke(peer);
         }
 

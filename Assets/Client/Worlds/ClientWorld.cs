@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Client.Entities;
 using Client.Entities._Base;
 using Client.Factories;
@@ -13,6 +14,7 @@ namespace Client.Worlds
         private readonly List<WorldSnapshotWrapper> _snapshotsHistory = new List<WorldSnapshotWrapper>();
 
         public float currentServerTime { get; private set; }
+        public event Action<ClientEntityBase> onAddLocalPlayer;
 
         public ClientEntityBase FindEntity(uint objectId)
         {
@@ -70,6 +72,12 @@ namespace Client.Worlds
                 {
                     //new entity
                     var clientEntity = ClientEntityFactory.Create(sharedEntity, this);
+                    
+                    if (ClientLocalPlayer.localObjectId == clientEntity.objectId)
+                    {
+                        onAddLocalPlayer?.Invoke(clientEntity);
+                    }
+                    
                     clientEntity.Use();
                     clientEntity.SetSnapshotDeltaTime(snapshotDeltaTime);
                     clientEntity.Create();
@@ -113,6 +121,8 @@ namespace Client.Worlds
             }
 
             _entities.Clear();
+
+            onAddLocalPlayer = null;
         }
     }
 }

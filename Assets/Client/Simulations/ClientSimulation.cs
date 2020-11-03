@@ -22,7 +22,6 @@ namespace Client.Simulations
         private readonly ClientWorld _clientWorld;
 
         private readonly List<ControlMessage> _messagesHistory = new List<ControlMessage>(128);
-        //private readonly List<WorldSnapshotMessage> _worldSnapshots = new List<WorldSnapshotMessage>();
         private WorldSnapshotMessage _lastSnapshot;
 
         private uint _messageNum;
@@ -78,6 +77,12 @@ namespace Client.Simulations
         {
             if (_clientNetListener.IsConnected) return;
             _clientNetListener.Start();
+
+            _clientWorld.onAddLocalPlayer += entity =>
+            {
+                ((ClientLocalPlayer)entity).SetCamera(Camera.main);
+            }; 
+            
             Log.Write("Client -> StartSimulation");
         }
 
@@ -87,7 +92,6 @@ namespace Client.Simulations
 
             _clientWorld.Clear();
             _messagesHistory.Clear();
-            //_worldSnapshots.Clear();
             _lastSnapshot = null;
             _started = false;
             Log.Write("Client -> StopSimulation");
@@ -95,13 +99,12 @@ namespace Client.Simulations
 
         public void ProcessSimulation()
         {
-            _clientNetListener.netManager.PollEvents();
+            _clientNetListener.PollEvents();
 
             var localPlayer = _clientWorld.FindEntity<ClientLocalPlayer>(ClientLocalPlayer.localObjectId, GameEntityType.Player);
 
             if (localPlayer != null)
             {
-                localPlayer.SetCamera(Camera.main);
                 var controlMessage = new ControlMessage();
                 controlMessage.SetObjectId(ClientLocalPlayer.localObjectId).SetGameId(_gameId).SetMessageNum(++_messageNum);
 
@@ -147,8 +150,6 @@ namespace Client.Simulations
 
         private void RewindPlayer(ClientLocalPlayer localPlayer, SharedPlayer serverPlayer)
         {
-            bool find = false;
-            
             for (int j = _messagesHistory.Count - 1; j >= 0; j--)
             {
                 if (_messagesHistory[j].messageNum == serverPlayer.lastMessageNum)
@@ -163,16 +164,9 @@ namespace Client.Simulations
                     
                     localPlayer.Process();
 
-                    //Debug.Log("ok, applied messages: " + _messagesHistory.Count);
-                    _started = find = true;
+                    _started = true;
                     break;
                 }
-            }
-            
-            if (!find)
-            {
-                //localPlayer.SetPosition(serverPlayer.position, serverPlayer.rotation);
-                Log.WriteWarning("Client -> MessageNum not found");
             }
         }
 
@@ -184,28 +178,28 @@ namespace Client.Simulations
         private void ClientNetListener_Connect()
         {
             Log.Write("Client -> MTU: " + _clientNetListener.netPeer.Mtu);
-            _clientNetListener.netPeer.Send(new EnterGameMessage().SetMessageNum(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.ReliableUnordered);
+            _clientNetListener.netPeer.Send(new EnterGameMessage().Serialize(_netDataWriter), DeliveryMethod.ReliableUnordered);
         }
 
-        private void ClientNetListener_IncomingMessage(IMessage message)
+        private void ClientNetListener_IncomingMessage(MessageBase message)
         {
-            if (message.messageNum <= _lastMessageFromServerNum)
+            if (ClientLocalPlayer.localObjectId > 0)
             {
-                Log.WriteWarning("message.messageNum <= _lastMessageFromServerNum");
-                return;
-            }
+                //in game
+                if (message.messageNum <= _lastMessageFromServerNum)
+                {
+                    Log.WriteWarning("message.messageNum <= _lastMessageFromServerNum");
+                    return;
+                }
 
-            _lastMessageFromServerNum = message.messageNum;
-
-            if (ClientLocalPlayer.localObjectId != 0)
-            {
+                _lastMessageFromServerNum = message.messageNum;
+                
                 switch (message.messageId)
                 {
                     case MessageIds.WorldSnapshot:
                     {
                         var snapshot = (WorldSnapshotMessage) message;
                         _lastSnapshot = snapshot;
-                        //_worldSnapshots.Add(snapshot);
                         break;
                     }
                 }

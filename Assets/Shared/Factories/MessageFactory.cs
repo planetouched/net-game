@@ -9,9 +9,9 @@ namespace Shared.Factories
 {
     public static class MessageFactory
     {
-        public static T Create<T>(MessageIds messageId) where T : IMessage
+        public static T Create<T>(MessageIds messageId) where T : MessageBase
         {
-            IMessage message = null;
+            MessageBase message = null;
 
             switch (messageId)
             {
@@ -40,10 +40,10 @@ namespace Shared.Factories
             throw new Exception("packetID not implemented");
         }
 
-        public static IMessage Create(NetDataReader netDataReader)
+        public static MessageBase Create(NetDataReader netDataReader)
         {
             var messageId = (MessageIds) netDataReader.PeekByte();
-            var message = Create<IMessage>(messageId);
+            var message = Create<MessageBase>(messageId);
 
             message.Deserialize(netDataReader);
             return message;

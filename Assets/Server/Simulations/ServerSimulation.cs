@@ -80,19 +80,18 @@ namespace Server.Simulations
             }
         }
 
-        private void ServerNetListener_IncomingMessage(NetPeer peer, IMessage message)
+        private void ServerNetListener_IncomingMessage(NetPeer peer, MessageBase message)
         {
             if (_players.TryGetValue(peer, out var player))
             {
                 var sharedPlayer = (SharedPlayer) player.sharedEntity;
                 
-                if (sharedPlayer.lastMessageNum >= message.messageNum) return;
+                if (!message.system && sharedPlayer.lastMessageNum >= message.messageNum) return;
                 
                 if (message.messageId == MessageIds.EnterGame)
                 {
                     _world.AddEntity(_world.GetNewObjectId(), player);
                     peer.Send(new EnterGameAcceptedMessage()
-                        .SetMessageNum(++_messageNum)
                         .SetObjectId(sharedPlayer.objectId)
                         .SetGameId(_gameId)
                         .Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
@@ -113,14 +112,14 @@ namespace Server.Simulations
         {
             try
             {
-                var preprocessSnapshot = (WorldSnapshot)_world.CreateSnapshot(_world.time, true);
+                var preprocessedSnapshot = _world.CreateSnapshot(_world.time, true);
                 
                 while (_messagesPerTick.Count > 0)
                 {
                     var message = _messagesPerTick.Dequeue();
                     var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
                     player?.AddControlMessage(message);
-                    preprocessSnapshot.AddControlMessage(message.objectId, message);
+                    preprocessedSnapshot.AddControlMessage(message.objectId, message);
                 }
                 
                 _world.Process();

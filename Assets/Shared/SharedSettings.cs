@@ -4,6 +4,6 @@
     {
         public const float BaseSpeed = 10;
 
-        public const float RailGunReloadTime = 2;
+        public const float RailGunReloadTime = 1;
     }
 }

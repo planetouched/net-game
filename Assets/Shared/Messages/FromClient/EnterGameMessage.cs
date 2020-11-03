@@ -8,6 +8,7 @@ namespace Shared.Messages.FromClient
     {
         public EnterGameMessage() : base(MessageIds.EnterGame)
         {
+            system = true;
         }
         
         public override NetDataWriter Serialize(NetDataWriter netDataWriter)

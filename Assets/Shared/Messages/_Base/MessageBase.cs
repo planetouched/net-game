@@ -3,33 +3,27 @@ using Shared.Enums;
 
 namespace Shared.Messages._Base
 {
-    public abstract class MessageBase : IMessage
+    public abstract class MessageBase
     {
         public MessageIds messageId { get; private set; }
         public uint messageNum { get; private set; }
         public int gameId { get; private set; }
         public uint objectId { get; private set; }
-        //public float time { get; private set;}
-        
-        // public IMessage SetTime(float t)
-        // {
-        //     time = t;
-        //     return this;
-        // }
+        public bool system { get; protected set; }
 
-        public IMessage SetGameId(int id)
+        public MessageBase SetGameId(int id)
         {
             gameId = id;
             return this;
         }
 
-        public IMessage SetObjectId(uint id)
+        public MessageBase SetObjectId(uint id)
         {
             objectId = id;
             return this;
         }
 
-        public IMessage SetMessageNum(uint num)
+        public MessageBase SetMessageNum(uint num)
         {
             messageNum = num;
             return this;
@@ -50,19 +44,19 @@ namespace Shared.Messages._Base
         protected void WriteHeader(NetDataWriter netDataWriter)
         {
             netDataWriter.Put((byte) messageId);
+            netDataWriter.Put(system);
             netDataWriter.Put(messageNum);
             netDataWriter.Put(gameId);
             netDataWriter.Put(objectId);
-            //netDataWriter.Put(time);
         }
 
         protected void ReadHeader(NetDataReader netDataReader)
         {
             messageId = (MessageIds) netDataReader.GetByte();
+            system = netDataReader.GetBool();
             messageNum = netDataReader.GetUInt();
             gameId = netDataReader.GetInt();
             objectId = netDataReader.GetUInt();
-            //time = netDataReader.GetFloat();
         }
     }
 }

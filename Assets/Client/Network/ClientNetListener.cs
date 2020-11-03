@@ -11,32 +11,27 @@ namespace Client.Network
 {
     public class ClientNetListener : INetEventListener
     {
-        //network
         private readonly string _serverIp;
         private readonly int _port;
 
         public NetManager netManager { get; }
         public NetPeer netPeer { get; private set; }
-        
-        public event Action<IMessage> onIncomingMessage;
+
+        public event Action<MessageBase> onIncomingMessage;
         public event Action onConnect;
         public event Action onDisconnect;
 
         public bool IsConnected => netPeer != null && netPeer.ConnectionState == ConnectionState.Connected;
-        
+
         public bool isStarted { get; private set; }
-    
+
         public ClientNetListener(string serverIp, int port)
         {
             _serverIp = serverIp;
             _port = port;
 
-            if (port != -1)
-            {
-                netManager = new NetManager(this, new Crc32cLayer());
-                netManager.UpdateTime = 5;
-                netManager.Start();
-            }
+            netManager = new NetManager(this, new Crc32cLayer()) {UpdateTime = 5};
+            netManager.Start();
         }
 
         public void Start()
