@@ -91,7 +91,12 @@ namespace Server.Simulations
                 if (message.messageId == MessageIds.EnterGame)
                 {
                     _world.AddEntity(_world.GetNewObjectId(), player);
-                    peer.Send(new EnterGameAcceptedMessage().SetMessageNum(++_messageNum).SetObjectId(sharedPlayer.objectId).SetGameId(_gameId).Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
+                    peer.Send(new EnterGameAcceptedMessage()
+                        .SetMessageNum(++_messageNum)
+                        .SetObjectId(sharedPlayer.objectId)
+                        .SetGameId(_gameId)
+                        .Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
+                    
                     sharedPlayer.position = new Vector3(0, 1, 0);
                 }
                 else

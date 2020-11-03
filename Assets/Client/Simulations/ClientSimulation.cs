@@ -184,7 +184,7 @@ namespace Client.Simulations
         private void ClientNetListener_Connect()
         {
             Log.Write("Client -> MTU: " + _clientNetListener.netPeer.Mtu);
-            _clientNetListener.netPeer.Send(new EnterGameMessage().SetMessageNum(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.Unreliable);
+            _clientNetListener.netPeer.Send(new EnterGameMessage().SetMessageNum(++_messageNum).Serialize(_netDataWriter), DeliveryMethod.ReliableUnordered);
         }
 
         private void ClientNetListener_IncomingMessage(IMessage message)

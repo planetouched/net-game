@@ -142,7 +142,7 @@ namespace Server.Worlds
             return ++_globalObjectId;
         }
 
-        private WorldSnapshot FindPreprocessSnapshotByTime(float targetTime)
+        private WorldSnapshot FindPreprocessedSnapshotByTime(float targetTime)
         {
             for (int i = _preprocessSnapshots.Count - 1; i >= 0; i--)
             {
@@ -157,31 +157,32 @@ namespace Server.Worlds
 
         private WorldSnapshot RewindWorld(float targetTime)
         {
-            var snapshot = FindPreprocessSnapshotByTime(targetTime);
+            var snapshot = FindPreprocessedSnapshotByTime(targetTime);
 
             if (snapshot == null) return null;
             
             var accuratelySnapshot = new WorldSnapshot(snapshot.serverTime);
             
-            foreach (var pair in snapshot.entities)
+            //only for players
+            foreach (var pair in snapshot.messages)
             {
                 var objectId = pair.Key;
-                var entity = pair.Value;
+                var messagesList = pair.Value;
 
-                if (snapshot.messages.TryGetValue(objectId, out var messages))
+                if (snapshot.entities.TryGetValue(objectId, out var entity))
                 {
                     var currentTime = accuratelySnapshot.serverTime;
                     var player = entity.Clone();
                     accuratelySnapshot.AddEntity(objectId, player);
                     
-                    for (int i = 0; i < messages.Count; i++)
+                    for (int i = 0; i < messagesList.Count; i++)
                     {
                         if (currentTime >= targetTime)
                         {
                             break;
                         }
                         
-                        var controlMessage = messages[i];
+                        var controlMessage = messagesList[i];
 
                         var position = player.position;
                         var rotation = player.rotation;
@@ -192,11 +193,42 @@ namespace Server.Worlds
                         currentTime += controlMessage.deltaTime;
                     }
                 }
-                else
-                {
-                    accuratelySnapshot.AddEntity(objectId, entity);
-                }
             }
+            
+            // foreach (var pair in snapshot.entities)
+            // {
+            //     var objectId = pair.Key;
+            //     var entity = pair.Value;
+            //
+            //     if (snapshot.messages.TryGetValue(objectId, out var messages))
+            //     {
+            //         var currentTime = accuratelySnapshot.serverTime;
+            //         var player = entity.Clone();
+            //         accuratelySnapshot.AddEntity(objectId, player);
+            //         
+            //         for (int i = 0; i < messages.Count; i++)
+            //         {
+            //             if (currentTime >= targetTime)
+            //             {
+            //                 break;
+            //             }
+            //             
+            //             var controlMessage = messages[i];
+            //
+            //             var position = player.position;
+            //             var rotation = player.rotation;
+            //             SharedPlayerBehaviour.Movement(ref position, ref rotation, controlMessage);
+            //             player.position = position;
+            //             player.rotation = rotation;
+            //                 
+            //             currentTime += controlMessage.deltaTime;
+            //         }
+            //     }
+            //     else
+            //     {
+            //         accuratelySnapshot.AddEntity(objectId, entity);
+            //     }
+            // }
 
             return accuratelySnapshot;
         }
