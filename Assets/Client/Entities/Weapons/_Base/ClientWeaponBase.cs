@@ -1,7 +1,7 @@
 ﻿using Client.Entities._Base;
 using Client.Worlds;
 using Shared.Entities;
-using Vector3 = System.Numerics.Vector3;
+using UnityEngine;
 
 namespace Client.Entities.Weapons._Base
 {

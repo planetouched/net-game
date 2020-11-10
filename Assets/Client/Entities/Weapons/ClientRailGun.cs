@@ -22,11 +22,11 @@ namespace Client.Entities.Weapons
         protected override void Shot(uint targetId)
         {
             var obj = Object.Instantiate(Resources.Load<GameObject>("RailGun/Prefabs/RailGun"));
-            obj.transform.position = position.ToUnity();
+            obj.transform.position = position;
             
             if (targetId == 0)
             {
-                obj.transform.rotation = Quaternion.Euler(rotation.ToUnity());
+                obj.transform.rotation = Quaternion.Euler(rotation);
             }
             else
             {
@@ -35,7 +35,7 @@ namespace Client.Entities.Weapons
                 if (entity != null)
                 {
                     var dir = entity.current.position - position;
-                    obj.transform.rotation = Quaternion.LookRotation(dir.ToUnity());
+                    obj.transform.rotation = Quaternion.LookRotation(dir);
 
                     if (entity.objectId == ClientLocalPlayer.localObjectId)
                     {

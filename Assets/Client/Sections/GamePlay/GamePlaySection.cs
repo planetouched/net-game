@@ -16,6 +16,8 @@ namespace Client.Sections.GamePlay
         protected override void Init()
         {
             Application.targetFrameRate = 144;
+            Physics.autoSimulation = false;
+
             Log.SetLogger(new UnityLogger());
             Log.Write("start");
         }
@@ -39,13 +41,13 @@ namespace Client.Sections.GamePlay
         {
             if (GUI.Button(new Rect(0, 0, 100, 100), "Run server"))
             {
-                _serverSimulation = new ServerSimulation(12345, 1);
+                _serverSimulation = new ServerSimulation(12345);
                 _serverSimulation.StartSimulation();
             }
             
             if (GUI.Button(new Rect(0, 200, 100, 100), "Stop server"))
             {
-                _serverSimulation.StopSimulation();
+                _serverSimulation.Drop();
             }
             
             if (GUI.Button(new Rect(300, 0, 100, 100), "Run client"))

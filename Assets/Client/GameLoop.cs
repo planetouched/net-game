@@ -21,7 +21,6 @@ namespace Client
             }
         }
 
-
         #region loop
 
         private void OnGUI()
@@ -34,18 +33,8 @@ namespace Client
             EngineLoopManager.Execute(Loops.FIXED_UPDATE);
         }
 
-        private void SimulatePhysics()
-        {
-            //optional
-            if (!Physics2D.autoSimulation)
-            {
-                Physics2D.Simulate(Time.deltaTime);
-            }
-        }
-
         private void Update()
         {
-            SimulatePhysics();
             Timer.Process(Loops.TIMER, Time.deltaTime);
             EngineLoopManager.Execute(Loops.UPDATE);
         }

@@ -7,11 +7,11 @@ namespace Shared.Factories
 {
     public static class SharedEntityFactory
     {
-        public static ISharedEntity Create(NetDataReader netDataReader)
+        public static SharedEntityBase Create(NetDataReader netDataReader)
         {
             var type = (GameEntityType)netDataReader.PeekByte();
 
-            ISharedEntity entity = null;
+            SharedEntityBase entity = null;
             switch (type)
             {
                 case GameEntityType.Player:

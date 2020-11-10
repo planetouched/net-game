@@ -1,15 +1,16 @@
-﻿using Server.Worlds;
+﻿using Basement.OEPFramework.UnityEngine._Base;
+using Server.Worlds;
 using Shared.Entities._Base;
 
 namespace Server.Entities._Base
 {
-    public abstract class ServerEntityBase
+    public abstract class ServerEntityBase : DroppableItemBase
     {
-        public ISharedEntity sharedEntity { get; }
+        public SharedEntityBase sharedEntity { get; }
         public bool isRemoved { get; private set; }
         public ServerWorld world { get; set; }
 
-        protected ServerEntityBase(ISharedEntity sharedEntity)
+        protected ServerEntityBase(SharedEntityBase sharedEntity)
         {
             this.sharedEntity = sharedEntity;
         }
@@ -20,5 +21,6 @@ namespace Server.Entities._Base
         }
 
         public abstract void Process(float deltaTime);
+        public abstract void Create();
     }
 }

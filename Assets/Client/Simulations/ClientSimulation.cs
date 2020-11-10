@@ -140,6 +140,7 @@ namespace Client.Simulations
                 //rewind player
                 if (localPlayer != null)
                 {
+                    //_started = true;
                     var serverPlayer = snapshotWrapper.FindEntity<SharedPlayer>(localPlayer.objectId, GameEntityType.Player);
                     RewindPlayer(localPlayer, serverPlayer);
                 }

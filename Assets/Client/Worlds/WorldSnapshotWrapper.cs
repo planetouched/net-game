@@ -9,7 +9,7 @@ namespace Client.Worlds
 {
     public class WorldSnapshotWrapper
     {
-        public Dictionary<uint, ISharedEntity> snapshotEntities { get; } = new Dictionary<uint, ISharedEntity>(256);
+        public Dictionary<uint, SharedEntityBase> snapshotEntities { get; } = new Dictionary<uint, SharedEntityBase>(256);
         //public float serverDeltaTime { get; }
         public float serverTime { get; }
 
@@ -27,7 +27,7 @@ namespace Client.Worlds
             }
         }
 
-        public ISharedEntity FindEntity(uint objectId)
+        public SharedEntityBase FindEntity(uint objectId)
         {
             if (snapshotEntities.TryGetValue(objectId, out var entity))
             {
@@ -37,7 +37,7 @@ namespace Client.Worlds
             return null;        
         }
 
-        public T FindEntity<T>(uint objectId, GameEntityType type) where T : class
+        public T FindEntity<T>(uint objectId, GameEntityType type) where T : SharedEntityBase
         {
             var entity = FindEntity(objectId);
             if (entity != null && entity.type == type)

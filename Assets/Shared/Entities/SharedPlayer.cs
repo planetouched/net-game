@@ -16,7 +16,7 @@ namespace Shared.Entities
             type = GameEntityType.Player;
         }
 
-        public override ISharedEntity Clone()
+        public override SharedEntityBase Clone()
         {
             var clone = new SharedPlayer
             {

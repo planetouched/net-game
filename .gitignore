@@ -95,3 +95,14 @@ guids*
 /DedicatedServer/src
 /Assembly-CSharp.csproj
 /net-game.sln
+/DedicatedServerUnity/Assets/Basement
+/DedicatedServerUnity/.idea/.idea.DedicatedServerUnity/.idea
+/DedicatedServerUnity/*.csproj
+/DedicatedServerUnity/Library
+/DedicatedServerUnity/obj/Debug/
+/DedicatedServerUnity/*.sln
+/DedicatedServerUnity/.idea
+/DedicatedServerUnity/Logs
+/DedicatedServerUnity/.idea/
+/DedicatedServerUnity/Assets/Shared
+/DedicatedServerUnity/Assets/Server/

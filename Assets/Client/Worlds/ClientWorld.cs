@@ -111,6 +111,14 @@ namespace Client.Worlds
             {
                 entity.Process();
             }
+            
+            /*
+            if (Physics.autoSimulation)
+            {
+                throw new Exception("Physics.autoSimulation is true");
+            }
+            
+            Physics.Simulate(Time.deltaTime);*/
         }
 
         public void Clear()

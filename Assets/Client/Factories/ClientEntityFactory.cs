@@ -9,7 +9,7 @@ namespace Client.Factories
 {
     public static class ClientEntityFactory
     {
-        public static ClientEntityBase Create(ISharedEntity sharedEntity, ClientWorld clientWorld)
+        public static ClientEntityBase Create(SharedEntityBase sharedEntity, ClientWorld clientWorld)
         {
             ClientEntityBase entity = null;
             

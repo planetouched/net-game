@@ -52,5 +52,9 @@ namespace Server.Entities.Weapons
                 _sharedWeapon.timeToReady -= deltaTime;
             }
         }
+
+        public override void Create()
+        {
+        }
     }
 }

@@ -74,6 +74,7 @@ namespace Client.Network
             var message = MessageFactory.Create(reader);
             //Logger.Log("[CLIENT] We received message " + message.messageId);
             onIncomingMessage?.Invoke(message);
+            reader.Recycle();
         }
 
         public void OnNetworkReceiveUnconnected(IPEndPoint remoteEndPoint, NetPacketReader reader, UnconnectedMessageType messageType)

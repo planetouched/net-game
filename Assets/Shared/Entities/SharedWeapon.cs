@@ -18,7 +18,7 @@ namespace Shared.Entities
             type = GameEntityType.Weapon;
         }
 
-        public override ISharedEntity Clone()
+        public override SharedEntityBase Clone()
         {
             var clone = new SharedWeapon
             {

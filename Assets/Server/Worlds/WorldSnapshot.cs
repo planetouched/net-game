@@ -7,7 +7,7 @@ namespace Server.Worlds
 {
     public class WorldSnapshot
     {
-        public Dictionary<uint, ISharedEntity> entities { get; } = new Dictionary<uint, ISharedEntity>(128);
+        public Dictionary<uint, SharedEntityBase> entities { get; } = new Dictionary<uint, SharedEntityBase>(128);
         public Dictionary<uint, List<ControlMessage>> messages { get; } = new Dictionary<uint, List<ControlMessage>>();
 
         public float serverTime { get; }
@@ -17,7 +17,7 @@ namespace Server.Worlds
             this.serverTime = serverTime;
         }
         
-        public void AddEntity(uint objectId, ISharedEntity entity)
+        public void AddEntity(uint objectId, SharedEntityBase entity)
         {
             entities.Add(objectId, entity);
         }

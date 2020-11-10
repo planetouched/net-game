@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Threading;
+using Basement.OEPFramework.UnityEngine._Base;
 using LiteNetLib;
 using LiteNetLib.Utils;
 using Server.Entities;
@@ -13,37 +13,33 @@ using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
 using Shared.Simulations;
-using Vector3 = System.Numerics.Vector3;
+using UnityEngine;
+using Timer = Basement.OEPFramework.UnityEngine.Timer;
 
 namespace Server.Simulations
 {
-    public class ServerSimulation : ISimulation
+    public class ServerSimulation : DroppableItemBase, ISimulation
     {
-        private readonly ServerWorld _world;
+        private Timer _tickTimer;
+        
+        private ServerWorld _world;
 
-        private uint _snapshotNum;
-        private uint _messageNum;
-        private Thread _tickThread;
-
-        private volatile bool _update;
+        private static int _globalGameId = 1;
 
         private readonly Queue<ControlMessage> _messagesPerTick = new Queue<ControlMessage>();
 
-        private readonly int _gameId;
         private readonly ServerNetListener _serverNetListener;
         private readonly NetDataWriter _worldDataWriter;
 
         private readonly Dictionary<NetPeer, ServerPlayer> _players = new Dictionary<NetPeer, ServerPlayer>();
 
-        public ServerSimulation(int port, int gameId)
+        public ServerSimulation(int port)
         {
-            _gameId = gameId;
             _worldDataWriter = new NetDataWriter(false, ushort.MaxValue);
             _serverNetListener = new ServerNetListener(port);
             _serverNetListener.onIncomingMessage += ServerNetListener_IncomingMessage;
             _serverNetListener.onClientDisconnected += ServerNetListener_ClientDisconnected;
             _serverNetListener.onClientConnected += ServerNetListener_ClientConnected;
-            _world = new ServerWorld();
         }
 
         public void StartSimulation()
@@ -57,10 +53,50 @@ namespace Server.Simulations
                 return;
             }
 
-            _tickThread = new Thread(Thread_Tick) {IsBackground = true};
-            _tickThread.Start();
+            _world = new ServerWorld(_globalGameId++);
+            _world.SetupTime();
+            
+            var tickDelay = 1 / (float) ServerSettings.TicksCount;
+            _tickTimer = Timer.CreateRealtime(tickDelay, Server_Tick, this);
 
             Log.Write("Server -> StartSimulation");
+        }
+        
+        private void Server_Tick()
+        {
+            _serverNetListener.PollEvents();
+            ProcessSimulation();
+        }
+        
+        public void StopSimulation()
+        {
+            if (!_serverNetListener.isStarted) return;
+
+            foreach (var peer in _serverNetListener.netManager.ConnectedPeerList)
+            {
+                try
+                {
+                    _players.Remove(peer);
+                    peer.Disconnect();
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+            }
+
+            _serverNetListener.Stop();
+            _tickTimer.Drop();
+            _world.Drop();
+            
+            Log.Write("Server -> StopSimulation");
+        }
+
+        public override void Drop()
+        {
+            if (dropped) return;
+            StopSimulation();
+            base.Drop();
         }
 
         private void ServerNetListener_ClientConnected(NetPeer peer)
@@ -93,10 +129,9 @@ namespace Server.Simulations
                     _world.AddEntity(_world.GetNewObjectId(), player);
                     peer.Send(new EnterGameAcceptedMessage()
                         .SetObjectId(sharedPlayer.objectId)
-                        .SetGameId(_gameId)
+                        .SetGameId(_world.gameId)
                         .Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
                     
-                    sharedPlayer.position = new Vector3(0, 1, 0);
                 }
                 else
                 {
@@ -122,58 +157,22 @@ namespace Server.Simulations
                     preprocessedSnapshot.AddControlMessage(message.objectId, message);
                 }
                 
+                //_world.worldRoot.SetActive(true);
                 _world.Process();
                 
                 var snapshot = _world.CreateSnapshot(_world.time, false);
 
                 _worldDataWriter.Reset();
-                var snapshotMessage = new WorldSnapshotMessage(++_snapshotNum, snapshot.Serialize(_worldDataWriter), _world.time);
-                snapshotMessage.SetMessageNum(++_messageNum).SetGameId(_gameId);
+                var snapshotMessage = new WorldSnapshotMessage(_world.GetAndIncrementSnapshotNum(), snapshot.Serialize(_worldDataWriter), _world.time);
+                snapshotMessage.SetMessageNum(_world.GetAndIncrementMessageNum()).SetGameId(_world.gameId);
 
                 _serverNetListener.netManager.SendToAll(snapshotMessage.Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
+                
+                //_world.worldRoot.SetActive(false);
             }
             catch (Exception)
             {
                 StopSimulation();
-            }
-        }
-
-        public void StopSimulation()
-        {
-            if (!_serverNetListener.isStarted) return;
-
-            foreach (var peer in _serverNetListener.netManager.ConnectedPeerList)
-            {
-                try
-                {
-                    _players.Remove(peer);
-                    peer.Disconnect();
-                }
-                catch (Exception)
-                {
-                    // ignored
-                }
-            }
-
-            _serverNetListener.Stop();
-
-            _update = false;
-            _tickThread?.Join();
-            Log.Write("Server -> StopSimulation");
-        }
-
-        private void Thread_Tick()
-        {
-            int tickDelay = (int) (1 / (float) ServerSettings.TicksCount * 1000);
-            
-            _update = true;
-            _world.SetupTime();
-
-            while (_update)
-            {
-                ProcessSimulation();
-                _serverNetListener.PollEvents();
-                Thread.Sleep(tickDelay);
             }
         }
     }

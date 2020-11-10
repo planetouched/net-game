@@ -1,6 +1,6 @@
-﻿using System.Numerics;
-using Shared.Messages.FromClient;
+﻿using Shared.Messages.FromClient;
 using Shared.Utils;
+using UnityEngine;
 
 namespace Shared.Entities
 {
@@ -8,7 +8,7 @@ namespace Shared.Entities
     {
         public static void Movement(ref Vector3 position, ref Vector3 rotation, ControlMessage message)
         {
-            Vector3 movement = Vector3.Zero;
+            Vector3 movement = Vector3.zero;
 
             if (message.forward)
                 movement += new Vector3(0, 0, 1);
@@ -25,8 +25,8 @@ namespace Shared.Entities
             rotation += new Vector3(message.mouseY, message.mouseX, 0) * message.sensitivity;
             rotation = MathUtil.ClampTo180(rotation);
 
-            var q = Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathUtil.ToRadians(rotation.Y));
-            position += Vector3.Transform(movement * SharedSettings.BaseSpeed * message.deltaTime, q);
+            var q = Quaternion.AngleAxis(rotation.y, Vector3.up);
+            position +=  q * (movement * SharedSettings.BaseSpeed * message.deltaTime);
         }
     }
 }

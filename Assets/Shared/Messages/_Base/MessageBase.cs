@@ -1,9 +1,10 @@
 ﻿using LiteNetLib.Utils;
+using Shared.CommonInterfaces;
 using Shared.Enums;
 
 namespace Shared.Messages._Base
 {
-    public abstract class MessageBase
+    public abstract class MessageBase : ISerializable, IDeserializable
     {
         public MessageIds messageId { get; private set; }
         public uint messageNum { get; private set; }

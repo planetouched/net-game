@@ -41,8 +41,8 @@ namespace Client.Entities.Weapons
         protected override void Shot()
         {
             var obj = Object.Instantiate(Resources.Load<GameObject>("RailGun/Prefabs/RailGun"));
-            obj.transform.position = position.ToUnity();
-            obj.transform.rotation = Quaternion.Euler(rotation.ToUnity());
+            obj.transform.position = position;
+            obj.transform.rotation = Quaternion.Euler(rotation);
             obj.transform.Translate(Vector3.forward * 0.5f);
         }
     }

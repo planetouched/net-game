@@ -2,14 +2,11 @@
 using Client.Entities._Base;
 using Client.Entities.Weapons;
 using Client.Entities.Weapons._Base;
-using Client.Utils;
 using Client.Worlds;
 using Shared.Entities;
 using Shared.Entities._Base;
 using Shared.Messages.FromClient;
 using UnityEngine;
-using Quaternion = UnityEngine.Quaternion;
-using Vector3 = System.Numerics.Vector3;
 
 namespace Client.Entities
 {
@@ -23,6 +20,8 @@ namespace Client.Entities
         
         public ClientLocalWeaponBase weapon { get; }
         
+        private readonly RaycastHit [] _raycastHits = new RaycastHit[10];
+        
         private readonly Queue<ControlMessage> _controlMessages = new Queue<ControlMessage>(64);
         private ControlMessage _currentControlMessage;
 
@@ -31,7 +30,7 @@ namespace Client.Entities
             weapon = new ClientLocalRailGun(clientWorld);
         }
         
-        public override void SetCurrentEntity(ISharedEntity entity)
+        public override void SetCurrentEntity(SharedEntityBase entity)
         {
             var sharedPlayer = (SharedPlayer) entity;
             weapon.SetCurrentEntity(sharedPlayer.weapon);
@@ -69,15 +68,15 @@ namespace Client.Entities
 
         private void UpdateCamera()
         {
-            _cameraTransform.rotation = Quaternion.Euler(_rotation.ToUnity());
-            _cameraTransform.position = _position.ToUnity();
+            _cameraTransform.rotation = Quaternion.Euler(_rotation);
+            _cameraTransform.position = _position;
         }
         
         public override void Process()
         {
             if (_currentControlMessage != null)
             {
-                SharedPlayerBehaviour.Movement(ref _position, ref _rotation, _currentControlMessage);
+                ApplyMovement(_currentControlMessage);
 
                 weapon.Use(_currentControlMessage.mouseButton0);
                 weapon.SetPositionAndRotation(_position, _rotation);
@@ -94,8 +93,7 @@ namespace Client.Entities
             
                 while (_controlMessages.Count > 0)
                 {
-                    var message = _controlMessages.Dequeue();
-                    SharedPlayerBehaviour.Movement(ref _position, ref _rotation, message);
+                    ApplyMovement(_controlMessages.Dequeue());
                 }
 
                 if (update)
@@ -103,6 +101,60 @@ namespace Client.Entities
                     UpdateCamera();
                 }
             }
+        }
+
+        private Vector3 PartialMovement(Vector3 moveVectorNormalized, float distance, Vector3 lastGoodPosition)
+        {
+            var size = Physics.SphereCastNonAlloc(lastGoodPosition, 0.5f, moveVectorNormalized, _raycastHits, distance);
+            
+            if (size > 0)
+            {
+                var normal = _raycastHits[0].normal;
+
+                for (int i = 1; i < size; i++)
+                {
+                    normal += _raycastHits[i].normal;
+                }
+                
+                var newPosition = lastGoodPosition;
+                
+                var normalProject = Vector3.ProjectOnPlane(normal, Vector3.up);
+                var normalPerpendicular = Vector3.Cross(normalProject, Vector3.up);
+                var velocityProject = Vector3.Project(moveVectorNormalized * distance, normalPerpendicular);
+                newPosition += velocityProject;
+
+                if (!Physics.CheckSphere(newPosition, 0.5f))
+                {
+                    return newPosition;
+                }
+                
+                //stack
+                return lastGoodPosition;
+            }
+            
+            return lastGoodPosition + moveVectorNormalized * distance;
+        }
+        
+        private void ApplyMovement(ControlMessage message)
+        {
+            var pos = _position;
+
+            SharedPlayerBehaviour.Movement(ref pos, ref _rotation, message);
+
+            #region movement
+            var moveVector = pos - _position;
+            
+            var magnitude = moveVector.magnitude;
+
+            while (magnitude > 0.06f)
+            {
+                magnitude -= 0.06f;
+
+                _position = PartialMovement(moveVector.normalized, 0.06f, _position);
+            }
+
+            _position = PartialMovement(moveVector.normalized, magnitude, _position);
+            #endregion
         }
     }
 }

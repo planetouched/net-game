@@ -12,8 +12,8 @@ namespace Client.Entities._Base
         
         public bool isUsed { get; private set; }
         
-        public ISharedEntity current { get; private set; }
-        public ISharedEntity previous { get; private set; }
+        public SharedEntityBase current { get; private set; }
+        public SharedEntityBase previous { get; private set; }
         protected float serverDeltaTime;
         protected readonly ClientWorld clientWorld;
 
@@ -32,7 +32,7 @@ namespace Client.Entities._Base
             isUsed = true;
         }
 
-        public virtual void SetCurrentEntity(ISharedEntity entity)
+        public virtual void SetCurrentEntity(SharedEntityBase entity)
         {
             previous = current;
             current = entity;

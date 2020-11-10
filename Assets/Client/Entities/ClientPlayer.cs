@@ -1,7 +1,6 @@
 ﻿using Client.Entities._Base;
 using Client.Entities.Weapons;
 using Client.Entities.Weapons._Base;
-using Client.Utils;
 using Client.Worlds;
 using Shared.Entities;
 using Shared.Entities._Base;
@@ -21,7 +20,7 @@ namespace Client.Entities
             weapon = new ClientRailGun(clientWorld);
         }
         
-        public override void SetCurrentEntity(ISharedEntity entity)
+        public override void SetCurrentEntity(SharedEntityBase entity)
         {
             _progress = 0;
             var sharedPlayer = (SharedPlayer) entity;
@@ -33,8 +32,14 @@ namespace Client.Entities
         public override void Create()
         {
             _go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
-            _go.transform.position = current.position.ToUnity();
+            _go.transform.rotation = Quaternion.Euler(current.rotation);
+            _go.transform.position = current.position;
+            
+            /*
+            _go.gameObject.AddComponent<SphereCollider>();
+            var rigidbody = _go.AddComponent<Rigidbody>();
+            rigidbody.constraints = RigidbodyConstraints.FreezeAll;
+            rigidbody.useGravity = false;*/
         }
 
         public override void Process()
@@ -43,8 +48,8 @@ namespace Client.Entities
             {
                 _progress += Time.smoothDeltaTime;
                 var k = _progress / serverDeltaTime;
-                var prevPosition = previous.position.ToUnity();
-                var currentPosition = current.position.ToUnity();
+                var prevPosition = previous.position;
+                var currentPosition = current.position;
                 var lerpPosition = Vector3.Lerp(prevPosition, currentPosition, k);
                 //_go.transform.position = lerpPosition; 
                 
@@ -52,12 +57,12 @@ namespace Client.Entities
                 var speed = Vector3.Distance(prevPosition, currentPosition) / serverDeltaTime;
                 _go.transform.position = Vector3.MoveTowards(_go.transform.position, lerpPosition, speed * Time.smoothDeltaTime); 
                 
-                _go.transform.rotation = Quaternion.Lerp(Quaternion.Euler(previous.rotation.ToUnity()), Quaternion.Euler(current.rotation.ToUnity()), k);
+                _go.transform.rotation = Quaternion.Lerp(Quaternion.Euler(previous.rotation), Quaternion.Euler(current.rotation), k);
             }
             else
             {
-                _go.transform.rotation = Quaternion.Euler(current.rotation.ToUnity());
-                _go.transform.position = current.position.ToUnity();
+                _go.transform.rotation = Quaternion.Euler(current.rotation);
+                _go.transform.position = current.position;
             }
             
             weapon.SetPositionAndRotation(current.position, current.rotation);

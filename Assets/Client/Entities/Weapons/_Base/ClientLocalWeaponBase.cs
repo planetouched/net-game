@@ -3,7 +3,6 @@ using Client.Worlds;
 using Shared;
 using Shared.Entities;
 using UnityEngine;
-using Vector3 = System.Numerics.Vector3;
 
 namespace Client.Entities.Weapons._Base
 {

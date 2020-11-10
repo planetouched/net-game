@@ -1,17 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using Server.Entities;
+using Basement.OEPFramework.UnityEngine._Base;
 using Server.Entities._Base;
 using Shared.Entities;
 using Shared.Enums;
-using Shared.Loggers;
-using Shared.Utils;
+using UnityEngine;
 
 namespace Server.Worlds
 {
-    public class ServerWorld
+    public class ServerWorld : DroppableItemBase
     {
-        private static uint _globalObjectId;
+        private uint _globalObjectId;
+        
+        private uint _snapshotNum = 1;
+        private uint _messageNum = 1;
 
         private readonly Dictionary<uint, ServerEntityBase> _entities = new Dictionary<uint, ServerEntityBase>(8192);
         private readonly Dictionary<uint, ServerEntityBase> _addEntities = new Dictionary<uint, ServerEntityBase>(1024);
@@ -22,7 +24,41 @@ namespace Server.Worlds
 
         public float time { get; private set; }
         private DateTime _lastTickTime;
+        
+        public GameObject worldRoot { get; }
+        public int gameId { get; }
 
+        public ServerWorld(int gameId)
+        {
+            worldRoot = new GameObject("ServerWorld_" + gameId);
+            
+            //level
+            var collider = new GameObject("collider");
+            collider.AddComponent<BoxCollider>();
+
+            AddGameObject(collider);
+            collider.transform.localPosition = new Vector3(0, 0.5f, 0);
+            collider.transform.localScale = new Vector3(3, 1, 3);
+            
+            worldRoot.SetActive(false);
+            this.gameId = gameId;
+        }
+
+        public void AddGameObject(GameObject gameObject)
+        {
+            gameObject.transform.SetParent(worldRoot.transform);
+        }
+        
+        public uint GetAndIncrementSnapshotNum()
+        {
+            return _snapshotNum++;
+        }
+        
+        public uint GetAndIncrementMessageNum()
+        {
+            return _messageNum++;
+        }
+        
         public void SetupTime()
         {
             _lastTickTime = DateTime.UtcNow; 
@@ -89,6 +125,7 @@ namespace Server.Worlds
             {
                 foreach (var pair in _addEntities)
                 {
+                    pair.Value.Create();
                     _entities.Add(pair.Key, pair.Value);
                 }
                 
@@ -102,7 +139,9 @@ namespace Server.Worlds
             {
                 for (int i = 0; i < _removeEntities.Count; i++)
                 {
-                    _entities.Remove(_removeEntities[i]);
+                    var removedEntity = _removeEntities[i];
+                    _entities[removedEntity].Drop();
+                    _entities.Remove(removedEntity);
                 }
 
                 _removeEntities.Clear();
@@ -114,6 +153,8 @@ namespace Server.Worlds
             var currentTime = DateTime.UtcNow;
             var deltaTime = (float)(currentTime - _lastTickTime).TotalSeconds;
             _lastTickTime = currentTime;
+            
+            worldRoot.SetActive(true);
             
             AddEntities();
             
@@ -133,6 +174,8 @@ namespace Server.Worlds
             }
 
             RemoveEntities();
+            
+            worldRoot.SetActive(false);
 
             time += deltaTime;
         }
@@ -155,7 +198,7 @@ namespace Server.Worlds
             return null;
         }
 
-        private WorldSnapshot RewindWorld(float targetTime)
+        public WorldSnapshot RewindWorld(float targetTime)
         {
             var snapshot = FindPreprocessedSnapshotByTime(targetTime);
 
@@ -194,74 +237,10 @@ namespace Server.Worlds
                     }
                 }
             }
-            
-            // foreach (var pair in snapshot.entities)
-            // {
-            //     var objectId = pair.Key;
-            //     var entity = pair.Value;
-            //
-            //     if (snapshot.messages.TryGetValue(objectId, out var messages))
-            //     {
-            //         var currentTime = accuratelySnapshot.serverTime;
-            //         var player = entity.Clone();
-            //         accuratelySnapshot.AddEntity(objectId, player);
-            //         
-            //         for (int i = 0; i < messages.Count; i++)
-            //         {
-            //             if (currentTime >= targetTime)
-            //             {
-            //                 break;
-            //             }
-            //             
-            //             var controlMessage = messages[i];
-            //
-            //             var position = player.position;
-            //             var rotation = player.rotation;
-            //             SharedPlayerBehaviour.Movement(ref position, ref rotation, controlMessage);
-            //             player.position = position;
-            //             player.rotation = rotation;
-            //                 
-            //             currentTime += controlMessage.deltaTime;
-            //         }
-            //     }
-            //     else
-            //     {
-            //         accuratelySnapshot.AddEntity(objectId, entity);
-            //     }
-            // }
 
             return accuratelySnapshot;
         }
         
-        public uint Shot(ServerEntityBase shooter, float shooterTime)
-        {
-            var shooterPlayer = (ServerPlayer) shooter;
-            
-            if (shooterPlayer.weapon.isInstant)
-            {
-                var snapshot = RewindWorld(shooterTime);
-                
-                if (snapshot != null)
-                {
-                    foreach (var checkEntity in snapshot.entities)
-                    {
-                        //skip self
-                        if (checkEntity.Key == shooterPlayer.sharedEntity.objectId) continue;
-
-                        var hit = MathUtil.IntersectRaySphere(shooterPlayer.sharedEntity.position, shooterPlayer.sharedEntity.rotation, checkEntity.Value.position, 0.5f);
-                        
-                        if (hit)
-                        {
-                            Log.Write("Hit to: " + checkEntity.Key);
-                            return checkEntity.Key;
-                        }
-                    }
-                }
-            }
-
-            return 0;
-        }
-
         public WorldSnapshot CreateSnapshot(float serverTime, bool preprocessSnapshot)
         {
             var snapshot  = new WorldSnapshot(serverTime);
@@ -293,6 +272,27 @@ namespace Server.Worlds
             }
 
             return snapshot;
+        }
+
+        public override void Drop()
+        {
+            if (dropped) return;
+
+            foreach (var entity in _entities.Values)
+            {
+                entity.Drop();
+            }
+            
+            _entities.Clear();
+            _addEntities.Clear();
+            _removeEntities.Clear();
+            
+            _preprocessSnapshots.Clear();
+            _snapshots.Clear();
+
+            UnityEngine.Object.Destroy(worldRoot);
+            
+            base.Drop();
         }
     }
 }

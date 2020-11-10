@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Numerics;
+using UnityEngine;
 
 namespace Shared.Utils
 {
@@ -12,35 +12,25 @@ namespace Shared.Utils
 
         public static Vector3 ClampTo180(Vector3 value)
         {
-            if (value.X > 180)
-                value.X -= 360;
+            if (value.x > 180)
+                value.x -= 360;
 
-            if (value.X < -180)
-                value.X += 360;
+            if (value.x < -180)
+                value.x += 360;
 
-            if (value.Y > 180)
-                value.Y -= 360;
+            if (value.y > 180)
+                value.y -= 360;
 
-            if (value.Y < -180)
-                value.Y += 360;
+            if (value.y < -180)
+                value.y += 360;
 
-            if (value.Z > 180)
-                value.Z -= 360;
+            if (value.z > 180)
+                value.z -= 360;
 
-            if (value.Z < -180)
-                value.Z += 360;
+            if (value.z < -180)
+                value.z += 360;
 
             return value;
-        }
-
-        public static bool IntersectRaySphere(Vector3 point, Vector3 euler, Vector3 center, float radius)
-        {
-            var quaternion = Quaternion.CreateFromYawPitchRoll(ToRadians(euler.Y), ToRadians(euler.X), ToRadians(euler.Z));
-            var direction = Vector3.Normalize(Vector3.Transform(Vector3.UnitZ, quaternion));
-            
-            var pointIntersect = point + direction * Vector3.Dot(center - point, direction);
-            float intersectDistance = Vector3.Distance(pointIntersect, center);
-            return intersectDistance < radius;
         }
     }
 }
