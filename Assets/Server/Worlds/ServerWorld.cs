@@ -5,6 +5,7 @@ using Server.Entities._Base;
 using Shared.Entities;
 using Shared.Enums;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Server.Worlds
 {
@@ -21,32 +22,40 @@ namespace Server.Worlds
         
         private readonly List<WorldSnapshot> _preprocessSnapshots = new List<WorldSnapshot>();
         private readonly List<WorldSnapshot> _snapshots = new List<WorldSnapshot>();
-
-        public float time { get; private set; }
-        private DateTime _lastTickTime;
         
-        public GameObject worldRoot { get; }
-        public int gameId { get; }
+        private DateTime _lastTickTime;
 
-        public ServerWorld(int gameId)
+        private readonly GameObject _worldRoot;
+        
+        public float time { get; private set; }
+        public int worldId { get; }
+        public bool isStarted { get; private set; }
+
+        public ServerWorld(int newWorldId)
         {
-            worldRoot = new GameObject("ServerWorld_" + gameId);
+            _worldRoot = new GameObject("ServerWorld_" + newWorldId);
             
+            /*
             //level
             var collider = new GameObject("collider");
             collider.AddComponent<BoxCollider>();
 
             AddGameObject(collider);
             collider.transform.localPosition = new Vector3(0, 0.5f, 0);
-            collider.transform.localScale = new Vector3(3, 1, 3);
+            collider.transform.localScale = new Vector3(3, 1, 3);*/
             
-            worldRoot.SetActive(false);
-            this.gameId = gameId;
+            _worldRoot.SetActive(false);
+            worldId = newWorldId;
         }
 
         public void AddGameObject(GameObject gameObject)
         {
-            gameObject.transform.SetParent(worldRoot.transform);
+            gameObject.transform.SetParent(_worldRoot.transform);
+        }
+
+        public void Start()
+        {
+            isStarted = true;
         }
         
         public uint GetAndIncrementSnapshotNum()
@@ -64,12 +73,13 @@ namespace Server.Worlds
             _lastTickTime = DateTime.UtcNow; 
         }
         
-        public uint AddEntity(uint objectId, ServerEntityBase entity)
+        public uint AddEntity(ServerEntityBase entity)
         {
-            _addEntities.Add(objectId, entity);
+            uint id = GetNewObjectId();
+            _addEntities.Add(GetNewObjectId(), entity);
             entity.world = this;
-            entity.sharedEntity.objectId = objectId;
-            return objectId;
+            entity.sharedEntity.objectId = id;
+            return id;
         }
 
         public void RemoveEntity(uint objectId)
@@ -154,7 +164,8 @@ namespace Server.Worlds
             var deltaTime = (float)(currentTime - _lastTickTime).TotalSeconds;
             _lastTickTime = currentTime;
             
-            worldRoot.SetActive(true);
+            //activate world
+            _worldRoot.SetActive(true);
             
             AddEntities();
             
@@ -175,12 +186,13 @@ namespace Server.Worlds
 
             RemoveEntities();
             
-            worldRoot.SetActive(false);
+            //deactivate world
+            _worldRoot.SetActive(false);
 
             time += deltaTime;
         }
 
-        public uint GetNewObjectId()
+        private uint GetNewObjectId()
         {
             return ++_globalObjectId;
         }
@@ -290,7 +302,7 @@ namespace Server.Worlds
             _preprocessSnapshots.Clear();
             _snapshots.Clear();
 
-            UnityEngine.Object.Destroy(worldRoot);
+            Object.Destroy(_worldRoot);
             
             base.Drop();
         }

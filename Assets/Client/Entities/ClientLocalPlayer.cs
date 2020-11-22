@@ -12,7 +12,7 @@ namespace Client.Entities
 {
     public class ClientLocalPlayer : ClientEntityBase
     {
-        public static uint localObjectId { get; set; }
+        public static uint serverObjectId { get; set; }
 
         private Vector3 _position;
         private Vector3 _rotation;

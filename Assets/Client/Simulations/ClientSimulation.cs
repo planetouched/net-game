@@ -88,7 +88,7 @@ namespace Client.Simulations
 
         public void StopSimulation()
         {
-            ClientLocalPlayer.localObjectId = 0;
+            ClientLocalPlayer.serverObjectId = 0;
 
             _clientWorld.Clear();
             _messagesHistory.Clear();
@@ -101,12 +101,12 @@ namespace Client.Simulations
         {
             _clientNetListener.PollEvents();
 
-            var localPlayer = _clientWorld.FindEntity<ClientLocalPlayer>(ClientLocalPlayer.localObjectId, GameEntityType.Player);
+            var localPlayer = _clientWorld.FindEntity<ClientLocalPlayer>(ClientLocalPlayer.serverObjectId, GameEntityType.Player);
 
             if (localPlayer != null)
             {
                 var controlMessage = new ControlMessage();
-                controlMessage.SetObjectId(ClientLocalPlayer.localObjectId).SetGameId(_gameId).SetMessageNum(++_messageNum);
+                controlMessage.SetObjectId(ClientLocalPlayer.serverObjectId).SetWorldId(_gameId).SetMessageNum(++_messageNum);
 
                 if (_started)
                 {
@@ -184,7 +184,7 @@ namespace Client.Simulations
 
         private void ClientNetListener_IncomingMessage(MessageBase message)
         {
-            if (ClientLocalPlayer.localObjectId > 0)
+            if (ClientLocalPlayer.serverObjectId > 0)
             {
                 //in game
                 if (message.messageNum <= _lastMessageFromServerNum)
@@ -207,11 +207,16 @@ namespace Client.Simulations
             }
             else
             {
-                if (message.messageId == MessageIds.ConnectAccepted)
+                if (message.messageId == MessageIds.GetWorldsList)
+                {
+                    var worlds = ((GetWorldsListMessage) message).worlds;
+                    //populate
+                }
+                else if (message.messageId == MessageIds.ConnectAccepted)
                 {
                     var connectAccepted = (EnterGameAcceptedMessage) message;
-                    ClientLocalPlayer.localObjectId = connectAccepted.objectId;
-                    _gameId = connectAccepted.gameId;
+                    ClientLocalPlayer.serverObjectId = connectAccepted.objectId;
+                    _gameId = connectAccepted.worldId;
                 }
             }
         }

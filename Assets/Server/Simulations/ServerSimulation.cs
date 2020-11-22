@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Basement.OEPFramework.UnityEngine._Base;
 using LiteNetLib;
 using LiteNetLib.Utils;
@@ -13,26 +14,24 @@ using Shared.Messages._Base;
 using Shared.Messages.FromClient;
 using Shared.Messages.FromServer;
 using Shared.Simulations;
-using UnityEngine;
-using Timer = Basement.OEPFramework.UnityEngine.Timer;
 
 namespace Server.Simulations
 {
     public class ServerSimulation : DroppableItemBase, ISimulation
     {
-        private Timer _tickTimer;
-        
-        private ServerWorld _world;
-
-        private static int _globalGameId = 1;
+        private static int _globalWorldId = 1;
 
         private readonly Queue<ControlMessage> _messagesPerTick = new Queue<ControlMessage>();
 
         private readonly ServerNetListener _serverNetListener;
         private readonly NetDataWriter _worldDataWriter;
 
-        private readonly Dictionary<NetPeer, ServerPlayer> _players = new Dictionary<NetPeer, ServerPlayer>();
-
+        private readonly Dictionary<int, ServerWorld> _worlds = new Dictionary<int, ServerWorld>();
+        private readonly Dictionary<int, Dictionary<NetPeer, ServerPlayer>> _world2Players = new Dictionary<int, Dictionary<NetPeer, ServerPlayer>>();
+        private readonly Dictionary<NetPeer, ServerPlayer> _allPlayers = new Dictionary<NetPeer, ServerPlayer>();
+        
+        private readonly List<int> _worldsToRemove = new List<int>();
+        
         public ServerSimulation(int port)
         {
             _worldDataWriter = new NetDataWriter(false, ushort.MaxValue);
@@ -41,7 +40,35 @@ namespace Server.Simulations
             _serverNetListener.onClientDisconnected += ServerNetListener_ClientDisconnected;
             _serverNetListener.onClientConnected += ServerNetListener_ClientConnected;
         }
+        
+        public void CreateWorld()
+        {
+            var world = new ServerWorld(_globalWorldId++);
+            world.SetupTime();
+            _worlds.Add(world.worldId, world);
+            _world2Players.Add(world.worldId, new Dictionary<NetPeer, ServerPlayer>());
+        }
 
+        private void RemoveWorld(int gameId)
+        {
+            foreach (var pair in _world2Players[gameId])
+            {
+                try
+                {
+                    _allPlayers.Remove(pair.Key);
+                    pair.Key.Disconnect();
+                }
+                catch
+                {
+                    //ignored
+                }                    
+            }
+
+            _world2Players.Remove(gameId);
+            _worlds[gameId].Drop();
+            _worlds.Remove(gameId);
+        }
+        
         public void StartSimulation()
         {
             if (_serverNetListener.isStarted) return;
@@ -53,45 +80,23 @@ namespace Server.Simulations
                 return;
             }
 
-            _world = new ServerWorld(_globalGameId++);
-            _world.SetupTime();
-            
-            var tickDelay = 1 / (float) ServerSettings.TicksCount;
-            _tickTimer = Timer.CreateRealtime(tickDelay, Server_Tick, this);
-
             Log.Write("Server -> StartSimulation");
-        }
-        
-        private void Server_Tick()
-        {
-            _serverNetListener.PollEvents();
-            ProcessSimulation();
         }
         
         public void StopSimulation()
         {
             if (!_serverNetListener.isStarted) return;
 
-            foreach (var peer in _serverNetListener.netManager.ConnectedPeerList)
-            {
-                try
-                {
-                    _players.Remove(peer);
-                    peer.Disconnect();
-                }
-                catch (Exception)
-                {
-                    // ignored
-                }
-            }
-
             _serverNetListener.Stop();
-            _tickTimer.Drop();
-            _world.Drop();
+
+            foreach (var worldId in _worlds.Keys.ToArray())
+            {
+                RemoveWorld(worldId);
+            }
             
             Log.Write("Server -> StopSimulation");
         }
-
+        
         public override void Drop()
         {
             if (dropped) return;
@@ -101,79 +106,98 @@ namespace Server.Simulations
 
         private void ServerNetListener_ClientConnected(NetPeer peer)
         {
-            if (!_players.ContainsKey(peer))
-            {
-                _players.Add(peer, new ServerPlayer(new SharedPlayer()));
-            }
+            peer.Send(new GetWorldsListMessage(_worlds).Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
         }
 
         private void ServerNetListener_ClientDisconnected(NetPeer peer)
         {
-            if (_players.ContainsKey(peer))
+            if (_allPlayers.ContainsKey(peer))
             {
-                _world.RemoveEntity(_players[peer].sharedEntity.objectId);
-                _players.Remove(peer);
+                var player = _allPlayers[peer];
+                player.world.RemoveEntity(player.sharedEntity.objectId);
+                _allPlayers.Remove(peer);
+                _world2Players[player.world.worldId].Remove(peer);
             }
         }
 
         private void ServerNetListener_IncomingMessage(NetPeer peer, MessageBase message)
         {
-            if (_players.TryGetValue(peer, out var player))
+            if (_allPlayers.TryGetValue(peer, out var player))
             {
+                if (message.system) return;
+                
                 var sharedPlayer = (SharedPlayer) player.sharedEntity;
                 
-                if (!message.system && sharedPlayer.lastMessageNum >= message.messageNum) return;
+                if (sharedPlayer.lastMessageNum >= message.messageNum) return;
+                
+                if (message.messageId == MessageIds.PlayerControl)
+                {
+                    _messagesPerTick.Enqueue((ControlMessage) message);
+                }
+            }
+            else
+            {
+                if (!message.system) return;
                 
                 if (message.messageId == MessageIds.EnterGame)
                 {
-                    _world.AddEntity(_world.GetNewObjectId(), player);
-                    peer.Send(new EnterGameAcceptedMessage()
-                        .SetObjectId(sharedPlayer.objectId)
-                        .SetGameId(_world.gameId)
-                        .Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
+                    var newPlayer = new ServerPlayer(new SharedPlayer()); 
                     
-                }
-                else
-                {
-                    if (message.messageId == MessageIds.PlayerControl)
-                    {
-                        _messagesPerTick.Enqueue((ControlMessage) message);
-                    }
+                    var world = _worlds[message.worldId];
+                    uint newObjectId = world.AddEntity(newPlayer);
+                    
+                    _allPlayers.Add(peer, newPlayer);
+                    _world2Players[message.worldId].Add(peer, newPlayer);
+                    
+                    peer.Send(new EnterGameAcceptedMessage()
+                        .SetObjectId(newObjectId)
+                        .SetWorldId(world.worldId)
+                        .Serialize(new NetDataWriter()), DeliveryMethod.ReliableUnordered);
                 }
             }
         }
 
         public void ProcessSimulation()
         {
-            try
+            _serverNetListener.PollEvents();
+
+            foreach (var world in _worlds.Values)
             {
-                var preprocessedSnapshot = _world.CreateSnapshot(_world.time, true);
-                
-                while (_messagesPerTick.Count > 0)
+                try
                 {
-                    var message = _messagesPerTick.Dequeue();
-                    var player = _world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
-                    player?.AddControlMessage(message);
-                    preprocessedSnapshot.AddControlMessage(message.objectId, message);
+                    var preprocessedSnapshot = world.CreateSnapshot(world.time, true);
+                
+                    while (_messagesPerTick.Count > 0)
+                    {
+                        var message = _messagesPerTick.Dequeue();
+                        var player = world.FindEntity<ServerPlayer>(message.objectId, GameEntityType.Player);
+                        player?.AddControlMessage(message);
+                        preprocessedSnapshot.AddControlMessage(message.objectId, message);
+                    }
+                
+                    world.Process();
+                
+                    var snapshot = world.CreateSnapshot(world.time, false);
+
+                    _worldDataWriter.Reset();
+                    var snapshotMessage = new WorldSnapshotMessage(world.GetAndIncrementSnapshotNum(), snapshot.Serialize(_worldDataWriter), world.time);
+                    snapshotMessage.SetMessageNum(world.GetAndIncrementMessageNum()).SetWorldId(world.worldId);
+
+                    _serverNetListener.netManager.SendToAll(snapshotMessage.Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
                 }
-                
-                //_world.worldRoot.SetActive(true);
-                _world.Process();
-                
-                var snapshot = _world.CreateSnapshot(_world.time, false);
-
-                _worldDataWriter.Reset();
-                var snapshotMessage = new WorldSnapshotMessage(_world.GetAndIncrementSnapshotNum(), snapshot.Serialize(_worldDataWriter), _world.time);
-                snapshotMessage.SetMessageNum(_world.GetAndIncrementMessageNum()).SetGameId(_world.gameId);
-
-                _serverNetListener.netManager.SendToAll(snapshotMessage.Serialize(new NetDataWriter()), DeliveryMethod.Unreliable);
-                
-                //_world.worldRoot.SetActive(false);
+                catch (Exception)
+                {
+                    //something went wrong
+                    _worldsToRemove.Add(world.worldId);
+                }
             }
-            catch (Exception)
+
+            for (int i = 0; i < _worldsToRemove.Count; i++)
             {
-                StopSimulation();
+                RemoveWorld(_worldsToRemove[i]);
             }
+            
+            _worldsToRemove.Clear();
         }
     }
 }

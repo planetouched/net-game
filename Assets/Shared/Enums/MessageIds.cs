@@ -8,6 +8,7 @@
         
         //from server
         ConnectAccepted,
-        WorldSnapshot
+        WorldSnapshot,
+        GetWorldsList
     }
 }

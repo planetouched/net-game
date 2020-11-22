@@ -8,13 +8,13 @@ namespace Shared.Messages._Base
     {
         public MessageIds messageId { get; private set; }
         public uint messageNum { get; private set; }
-        public int gameId { get; private set; }
+        public int worldId { get; private set; }
         public uint objectId { get; private set; }
         public bool system { get; protected set; }
 
-        public MessageBase SetGameId(int id)
+        public MessageBase SetWorldId(int id)
         {
-            gameId = id;
+            worldId = id;
             return this;
         }
 
@@ -47,7 +47,7 @@ namespace Shared.Messages._Base
             netDataWriter.Put((byte) messageId);
             netDataWriter.Put(system);
             netDataWriter.Put(messageNum);
-            netDataWriter.Put(gameId);
+            netDataWriter.Put(worldId);
             netDataWriter.Put(objectId);
         }
 
@@ -56,7 +56,7 @@ namespace Shared.Messages._Base
             messageId = (MessageIds) netDataReader.GetByte();
             system = netDataReader.GetBool();
             messageNum = netDataReader.GetUInt();
-            gameId = netDataReader.GetInt();
+            worldId = netDataReader.GetInt();
             objectId = netDataReader.GetUInt();
         }
     }

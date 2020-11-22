@@ -16,7 +16,7 @@ namespace Client.Factories
             switch (sharedEntity.type)
             {
                 case GameEntityType.Player:
-                    if (sharedEntity.objectId == ClientLocalPlayer.localObjectId)
+                    if (sharedEntity.objectId == ClientLocalPlayer.serverObjectId)
                     {
                         entity = new ClientLocalPlayer(clientWorld);
                     }

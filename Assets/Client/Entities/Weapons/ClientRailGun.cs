@@ -37,7 +37,7 @@ namespace Client.Entities.Weapons
                     var dir = entity.current.position - position;
                     obj.transform.rotation = Quaternion.LookRotation(dir);
 
-                    if (entity.objectId == ClientLocalPlayer.localObjectId)
+                    if (entity.objectId == ClientLocalPlayer.serverObjectId)
                     {
                         _timer?.Drop();
                         GameObject.Find("Canvas").transform.Find("_Damage").gameObject.SetActive(true);

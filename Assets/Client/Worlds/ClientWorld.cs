@@ -54,7 +54,7 @@ namespace Client.Worlds
                 clientEntity.UnUse();
             }
 
-            FindEntity(ClientLocalPlayer.localObjectId)?.Use();
+            FindEntity(ClientLocalPlayer.serverObjectId)?.Use();
 
             foreach (var pair in snapshotWrapper.snapshotEntities)
             {
@@ -73,7 +73,7 @@ namespace Client.Worlds
                     //new entity
                     var clientEntity = ClientEntityFactory.Create(sharedEntity, this);
                     
-                    if (ClientLocalPlayer.localObjectId == clientEntity.objectId)
+                    if (ClientLocalPlayer.serverObjectId == clientEntity.objectId)
                     {
                         onAddLocalPlayer?.Invoke(clientEntity);
                     }
